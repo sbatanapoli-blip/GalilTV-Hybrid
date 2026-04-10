@@ -7,6 +7,11 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- ✅ السماح للتطبيق برؤية وتشغيل Vexo Player -->
+    <queries>
+        <package android:name="com.vexo.player" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@android:drawable/ic_menu_compass"
