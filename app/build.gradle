@@ -13,6 +13,10 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
@@ -30,10 +34,21 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    // ✅ حل تعارض المكتبات الذي يسبب فشل تحليل الحزمة
+    packaging {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.webkit:webkit:1.8.0'
+    implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
 }
