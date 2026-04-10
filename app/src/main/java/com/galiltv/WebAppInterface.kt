@@ -10,26 +10,16 @@ class WebAppInterface(private val context: Context) {
     @JavascriptInterface
     fun playVideo(url: String) {
         try {
-            val vlcIntent = Intent(Intent.ACTION_VIEW).apply {
+            // ✅ فتح Vexo Player فقط
+            val vexoIntent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse(url)
-                setPackage("org.videolan.vlc")
+                setPackage("com.vexo.player")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            context.startActivity(vlcIntent)
+            context.startActivity(vexoIntent)
         } catch (e: Exception) {
-            try {
-                val mxIntent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse(url)
-                    setPackage("com.mxtech.videoplayer.ad")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                context.startActivity(mxIntent)
-            } catch (e2: Exception) {
-                Toast.makeText(context, "Install VLC/MX Player for best experience", Toast.LENGTH_LONG).show()
-                val fallback = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                fallback.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                context.startActivity(fallback)
-            }
+            // ❌ إذا لم يكن Vexo مثبتاً
+            Toast.makeText(context, "Please install Vexo Player", Toast.LENGTH_LONG).show()
         }
     }
 
