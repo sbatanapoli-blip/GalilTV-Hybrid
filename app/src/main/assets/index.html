@@ -881,22 +881,49 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
     showMsg('⏳ Loading...');
     
     fetch(apiUrl, { cache: 'no-store' })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      })
       .then(data => {
         if (data.success && data.url) {
-          // ✅ إرسال الرابط لـ Vexo فقط
-          if (window.Android) {
-              window.Android.playVideo(data.url);
+          const streamUrl = data.url;
+          
+          // ✅ الطريقة الصحيحة لفتح Vexo
+          if (window.Android && typeof window.Android.playVideo === 'function') {
+              // عبر Native Bridge (الأفضل)
+              window.Android.playVideo(streamUrl);
           } else {
-              // Fallback بسيط للمتصفح
-              window.location.href = 'intent://' + data.url + 
-                                   '#Intent;scheme=vexo;package=com.vexo.player;end';
+              // ✅ Fallback: Intent صحيح لـ Vexo
+              try {
+                  // الطريقة 1: intent:// مع المكونات الصحيحة
+                  const intentUrl = 'intent://' + streamUrl + 
+                                   '#Intent;action=android.intent.action.VIEW;' +
+                                   'type=video/*;' +
+                                   'package=com.vexo.player;' +
+                                   'scheme=http;end';
+                  window.location.href = intentUrl;
+                  
+                  // إذا لم ينجح بعد 2 ثانية، جرّب الطريقة البديلة
+                  setTimeout(() => {
+                      if (document.visibilityState === 'visible') {
+                          const fallbackUrl = 'vexo://play?url=' + encodeURIComponent(streamUrl);
+                          window.location.href = fallbackUrl;
+                      }
+                  }, 2000);
+              } catch(e) {
+                  // آخر محاولة: فتح مباشر
+                  window.open(streamUrl, '_blank');
+              }
           }
         } else {
-          showMsg('❌ Error');
+          showMsg('❌ Error: ' + (data.error || 'Failed'));
         }
       })
-      .catch(() => showMsg('⚠️ Connection error'));
+      .catch(error => {
+        console.error('Fetch error:', error);
+        showMsg('⚠️ Connection error');
+      });
 },  
     
   preloadSmart: function() {  
