@@ -873,12 +873,14 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
     const streamId = channel.stream_id || channel.num;
     const streamType = channel.stream_type || 'live';
     
+    showMsg('⏳ Fetching stream URL...');
+    
     const apiUrl = CONFIG.API_BASE + '/?action=play' +   
                   '&stream_id=' + encodeURIComponent(streamId) +   
                   '&type=' + encodeURIComponent(streamType) +  
                   '&ext=ts';
     
-    showMsg('⏳ Loading...');
+    console.log('🔍 Requesting:', apiUrl);
     
     fetch(apiUrl, { cache: 'no-store' })
       .then(response => {
@@ -886,43 +888,37 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
         return response.json();
       })
       .then(data => {
-        if (data.success && data.url) {
-          const streamUrl = data.url;
-          
-          // ✅ الطريقة الصحيحة لفتح Vexo
-          if (window.Android && typeof window.Android.playVideo === 'function') {
-              // عبر Native Bridge (الأفضل)
-              window.Android.playVideo(streamUrl);
-          } else {
-              // ✅ Fallback: Intent صحيح لـ Vexo
-              try {
-                  // الطريقة 1: intent:// مع المكونات الصحيحة
-                  const intentUrl = 'intent://' + streamUrl + 
-                                   '#Intent;action=android.intent.action.VIEW;' +
-                                   'type=video/*;' +
-                                   'package=com.vexo.player;' +
-                                   'scheme=http;end';
-                  window.location.href = intentUrl;
-                  
-                  // إذا لم ينجح بعد 2 ثانية، جرّب الطريقة البديلة
-                  setTimeout(() => {
-                      if (document.visibilityState === 'visible') {
-                          const fallbackUrl = 'vexo://play?url=' + encodeURIComponent(streamUrl);
-                          window.location.href = fallbackUrl;
-                      }
-                  }, 2000);
-              } catch(e) {
-                  // آخر محاولة: فتح مباشر
-                  window.open(streamUrl, '_blank');
-              }
-          }
+        console.log('📦 Full API Response:', data); // 🔑 مهم جداً للتشخيص
+        
+        // ✅ دعم عدة صيغ شائعة في سيرفرات IPTV
+        let streamUrl = data.url || 
+                        data.stream_url || 
+                        data.play_url || 
+                        (data.data && data.data.url) || 
+                        '';
+        
+        if (streamUrl && streamUrl.trim() !== '') {
+            console.log('✅ Stream URL found:', streamUrl);
+            
+            if (window.Android && typeof window.Android.playVideo === 'function') {
+                window.Android.playVideo(streamUrl);
+            } else {
+                // Fallback للمتصفح
+                window.location.href = streamUrl;
+            }
         } else {
-          showMsg('❌ Error: ' + (data.error || 'Failed'));
+            // ❌ عرض رسالة خطأ واضحة تحتوي على ما أرسله السيرفر
+            let debugMsg = '❌ Empty URL from API';
+            if (data.error) debugMsg += ': ' + data.error;
+            if (data.message) debugMsg += ' | ' + data.message;
+            
+            showMsg(debugMsg);
+            console.error('⚠️ API returned no URL. Response:', data);
         }
       })
       .catch(error => {
-        console.error('Fetch error:', error);
-        showMsg('⚠️ Connection error');
+        console.error('🌐 Fetch failed:', error);
+        showMsg('⚠️ Network error. Check internet.');
       });
 },  
     
