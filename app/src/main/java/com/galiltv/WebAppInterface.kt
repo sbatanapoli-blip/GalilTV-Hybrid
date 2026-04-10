@@ -25,8 +25,18 @@ class WebAppInterface(private val context: Context) {
 
     @JavascriptInterface
     fun showToast(msg: String) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
+        Handler(Looper.getMainLooper()).post {
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ✅ دالة للتحقق مما إذا كان التطبيق مثبتاً
+    private fun isAppInstalled(packageName: String): Boolean {
+        return try {
+            context.packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
         }
     }
 }
