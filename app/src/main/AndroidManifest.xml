@@ -10,20 +10,14 @@
 
     <!-- ✅ السماح برؤية جميع المشغلات -->
     <queries>
-        <package android:name="com.vexo.player" />
-        <package android:name="org.videolan.vlc" />
-        <package android:name="com.mxtech.videoplayer.ad" />
-        <package android:name="com.mxtech.videoplayer.ar" />
-        <package android:name="com.brouken.player" />
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="http" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="https" />
-        </intent>
-    </queries>
+    <package android:name="com.vexo.player" />
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="http" />
+        <data android:scheme="https" />
+        <data android:mimeType="video/*" />
+    </intent>
+</queries>
 
     <application
         android:allowBackup="true"
