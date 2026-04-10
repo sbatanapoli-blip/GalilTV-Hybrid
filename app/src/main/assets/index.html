@@ -869,18 +869,17 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
     setTimeout(() => { state.isLoading = false; }, 300);  
   },  
     
+    
   play: function(channel) {  
     const streamId = channel.stream_id || channel.num;  
     const streamType = channel.stream_type || 'live';  
-      
-    console.log('🎬 Requesting TS stream URL for:', streamId);  
       
     const apiUrl = CONFIG.API_BASE + '/?action=play' +   
                   '&stream_id=' + encodeURIComponent(streamId) +   
                   '&type=' + encodeURIComponent(streamType) +  
                   '&ext=ts';  
       
-    showMsg('⏳ Loading stream...');  
+    showMsg('⏳ Loading...');  
       
     fetch(apiUrl, { cache: 'no-store' })  
       .then(response => {  
@@ -889,65 +888,22 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
       })  
       .then(data => {  
         if (data.success && data.url) {  
-          console.log('✅ Got direct TS stream URL');  
-          
           const streamUrl = data.url;
           
-          // ✅ الطريقة 1: Vexo Player (الأولوية)
-          const vexoIntent = 'intent://' + streamUrl + 
-                           '#Intent;action=android.intent.action.VIEW;' +
-                           'type=video/*;' +
-                           'package=com.vexo.player;' +
-                           'scheme=http;end';
-          
-          // ✅ الطريقة 2: VLC (احتياطي)
-          const vlcIntent = 'intent://' + streamUrl + 
-                          '#Intent;action=android.intent.action.VIEW;' +
-                          'type=video/*;' +
-                          'package=org.videolan.vlc;' +
-                          'scheme=http;end';
-          
-          // ✅ الطريقة 3: MX Player (احتياطي)
-          const mxIntent = 'intent://' + streamUrl + 
-                         '#Intent;action=android.intent.action.VIEW;' +
-                         'type=video/*;' +
-                         'package=com.mxtech.videoplayer.ad;' +
-                         'scheme=http;end';
-          
-          // جرّب Vexo أولاً
-          setTimeout(() => {  
-              window.location.href = vexoIntent;
-              
-              // إذا لم يفتح Vexo بعد 2 ثانية، جرّب VLC
-              setTimeout(() => {
-                  if (document.visibilityState === 'visible') {
-                      window.location.href = vlcIntent;
-                      
-                      // إذا لم يفتح VLC بعد 2 ثانية، جرّب MX
-                      setTimeout(() => {
-                          if (document.visibilityState === 'visible') {
-                              window.location.href = mxIntent;
-                              
-                              // إذا فشل الكل، افتح الرابط مباشرة
-                              setTimeout(() => {
-                                  if (document.visibilityState === 'visible') {
-                                      window.open(streamUrl, '_blank');
-                                  }
-                              }, 2000);
-                          }
-                      }, 2000);
-                  }
-              }, 2000);
-          }, 300);
-          
+          // ✅ استخدم الجسر الأصلي (الأفضل والأكثر موثوقية)
+          if (window.Android && typeof window.Android.playVideo === 'function') {
+              window.Android.playVideo(streamUrl);
+          } else {
+              // Fallback: فتح الرابط مباشرة في المتصفح
+              window.location.href = streamUrl;
+          }
         } else {  
-          console.error('❌ Worker response error:', data);  
-          showMsg('❌ Error: ' + (data.error || 'Failed to get stream URL'));  
+          showMsg('❌ Error: ' + (data.error || 'No URL'));  
         }  
       })  
       .catch(error => {  
-        console.error('❌ Fetch error:', error);  
-        showMsg('⚠️ Connection error. Check your internet.');  
+        console.error('Fetch error:', error);  
+        showMsg('⚠️ Connection error');  
       });  
 },  
     
