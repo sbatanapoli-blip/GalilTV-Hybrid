@@ -4,27 +4,28 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
-    <!-- دعم Android TV و TV Box -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <!-- ✅ السماح برؤية جميع المشغلات -->
     <queries>
-    <package android:name="com.vexo.player" />
-    <intent>
-        <action android:name="android.intent.action.VIEW" />
-        <data android:scheme="http" />
-        <data android:scheme="https" />
-        <data android:mimeType="video/*" />
-    </intent>
-</queries>
+        <package android:name="com.vexo.player" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
         android:icon="@android:drawable/ic_menu_compass"
         android:label="Galil TV"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        android:name="androidx.multidex.MultiDexApplication">
         
         <activity
             android:name=".MainActivity"
