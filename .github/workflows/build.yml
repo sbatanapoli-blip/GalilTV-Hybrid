@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -18,8 +19,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
     - name: Build Debug APK
-      run: gradle assembleDebug
+      run: ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v3
