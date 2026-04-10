@@ -19,16 +19,14 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew || echo "gradlew not found, using system gradle"
+    # ✅ هذا التعديل يجبر النظام على استخدام Gradle 8.4 بدلاً من 9.4
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
 
-    - name: Build with Gradle
-      run: |
-        if [ -f gradlew ]; then
-          ./gradlew assembleDebug
-        else
-          gradle assembleDebug
-        fi
+    - name: Build APK
+      run: gradle assembleDebug --stacktrace
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
