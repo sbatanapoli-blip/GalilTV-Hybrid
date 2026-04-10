@@ -19,9 +19,16 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # ✅ هذا السطر هو الحل: يحاول استخدام الملف المحلي، وإذا لم يجده يستخدم نظام السيرفر
-    - name: Build APK
-      run: ./gradlew assembleDebug || gradle assembleDebug
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew || echo "gradlew not found, using system gradle"
+
+    - name: Build with Gradle
+      run: |
+        if [ -f gradlew ]; then
+          ./gradlew assembleDebug
+        else
+          gradle assembleDebug
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
