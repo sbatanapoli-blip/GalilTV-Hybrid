@@ -1,20 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ✅ الأذونات الأساسية -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
-    <!-- ✅ مهم جداً: السماح برؤية التطبيقات المثبتة -->
+    <!-- ✅ مهم جداً: السماح برؤية التطبيقات المثبتة (مثل Vexo) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
-    <uses-feature android:name="android.software.leanback" android:required="false" />
-    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- ✅ دعم Android TV و TV Box -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
 
-    <!-- ✅ السماح بفتح المشغلات -->
+    <!-- ✅ السماح بفتح روابط intent:// والتعرف على Vexo -->
     <queries>
         <package android:name="com.vexo.player" />
         <package android:name="org.videolan.vlc" />
-        <package android:name="com.mxtech.videoplayer.ad" />
-        <package android:name="com.brouken.player" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="intent" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
@@ -39,15 +48,19 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:screenOrientation="sensorLandscape">
             
+            <!-- للهواتف -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- لـ Android TV / TV Box -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+        
     </application>
+
 </manifest>
