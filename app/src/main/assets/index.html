@@ -878,20 +878,27 @@ Channels.renderBatch(data, els.channelsList, categoryIcon, categoryId);
                   '&type=' + encodeURIComponent(streamType) +  
                   '&ext=ts';  
       
-    showMsg('⏳ Loading...');  
+    showMsg('⏳ Loading stream...');  
       
     fetch(apiUrl, { cache: 'no-store' })  
-      .then(response => response.json())  
+      .then(response => {  
+        if (!response.ok) throw new Error('HTTP ' + response.status);  
+        return response.json();  
+      })  
       .then(data => {  
         if (data.success && data.url) {  
-          // ✅ ببساطة غيّر location والرابط سيُعتَرض في Kotlin
-          window.location.href = data.url;
+          // ✅ نفس الكود الناجح من AppCreator24
+          const vexoIntent = 'intent://play?url=' + encodeURIComponent(data.url) +   
+                           '#Intent;scheme=vexo;package=com.vexo.player;end';  
+          setTimeout(() => { window.location.href = vexoIntent; }, 300);  
         } else {  
-          showMsg('❌ Error');  
+          showMsg('❌ Error: ' + (data.error || 'Failed'));  
         }  
       })  
-      .catch(() => showMsg('⚠️ Connection error'));  
-}, 
+      .catch(error => {  
+        showMsg('⚠️ Connection error');  
+      });  
+},
     
   preloadSmart: function() {  
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;  
