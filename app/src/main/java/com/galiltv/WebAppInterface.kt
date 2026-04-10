@@ -1,5 +1,6 @@
 package com.galiltv
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -10,16 +11,26 @@ class WebAppInterface(private val context: Context) {
     @JavascriptInterface
     fun playVideo(url: String) {
         try {
-            // ✅ فتح Vexo Player فقط
-            val vexoIntent = Intent(Intent.ACTION_VIEW).apply {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse(url)
+                type = "video/*" // مهم جداً للمشغلات
                 setPackage("com.vexo.player")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-            context.startActivity(vexoIntent)
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // ✅ Vexo غير موجود أو لا يستجيب للرابط
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context, "Vexo not responding. Check if it supports direct URLs.", Toast.LENGTH_LONG).show()
+            }
+            // فتح متجر جوجل كحل بديل (اختياري)
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.vexo.player")))
+            } catch (e2: Exception) {}
         } catch (e: Exception) {
-            // ❌ إذا لم يكن Vexo مثبتاً
-            Toast.makeText(context, "Please install Vexo Player", Toast.LENGTH_LONG).show()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
