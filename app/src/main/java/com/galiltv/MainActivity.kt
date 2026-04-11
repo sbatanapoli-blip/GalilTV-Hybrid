@@ -30,6 +30,10 @@ class MainActivity : AppCompatActivity() {
                     openTelegram(url)
                     return true
                 }
+                // في shouldOverrideUrlLoading
+                if (url.endsWith("abs.html") || url.contains("/abs")) {
+                   return false // يفتح داخل WebView
+                }
                 
                 // ✅ دعم روابط intent:// (مثل Vexo)
                 if (url.startsWith("intent://")) {
