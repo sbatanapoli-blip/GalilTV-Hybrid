@@ -12,7 +12,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
 
     // ✅ رابط HTML على السيرفر (غيّره برابطك الفعلي)
-    private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/index.html"
+    private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
