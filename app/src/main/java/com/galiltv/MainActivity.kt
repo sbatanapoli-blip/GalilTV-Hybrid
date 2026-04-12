@@ -9,10 +9,14 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+// ✅ إضافة استيراد إعلان المكافأة
+import com.google.android.gms.ads.rewarded.RewardedAd
 
 class MainActivity : AppCompatActivity() {
     
-    private lateinit var webView: WebView
+    // ✅ أهم تعديل: إزالة 'private' ليصبح الويب فيو متاحاً لـ WebAppInterface
+    lateinit var webView: WebView
+    
     private lateinit var adView: AdView
     private var interstitialAd: InterstitialAd? = null
     
@@ -43,11 +47,11 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     if (url.startsWith("intent://")) {
-                        try {
-                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        try {                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                             startActivity(intent)
                             return true
-                        } catch (e: Exception) {                            val cleanUrl = url.substringAfter("url=").substringBefore("#")
+                        } catch (e: Exception) {
+                            val cleanUrl = url.substringAfter("url=").substringBefore("#")
                             try {
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl)))
                             } catch (e2: Exception) {}
@@ -70,7 +74,10 @@ class MainActivity : AppCompatActivity() {
             }
             
             webChromeClient = WebChromeClient()
+            
+            // ✅ ربط الجسر بين الويب والأندرويد
             addJavascriptInterface(WebAppInterface(this@MainActivity, this@MainActivity), "Android")
+            
             loadUrl(HTML_URL)
         }
         
@@ -89,14 +96,14 @@ class MainActivity : AppCompatActivity() {
         })
         
         setContentView(rootLayout)
-    }
-    
+    }    
     private fun setupBannerAd() {
         adView = AdView(this).apply {
             setAdSize(AdSize.BANNER)
             adUnitId = BANNER_AD_UNIT_ID
             loadAd(AdRequest.Builder().build())
-        }    }
+        }
+    }
     
     private fun loadInterstitialAd() {
         InterstitialAd.load(
@@ -114,6 +121,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
     
+    // ✅ هذه الدالة يستدعيها WebAppInterface لعرض الإعلان البيني
     fun showInterstitialAd() {
         if (interstitialAd != null) {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
@@ -137,15 +145,15 @@ class MainActivity : AppCompatActivity() {
             try {
                 val webUrl = if (url.startsWith("tg://")) {
                     val username = url.substringAfter("domain=").substringBefore("&")
-                    "https://t.me/$username"
-                } else {
+                    "https://t.me/$username"                } else {
                     url.replace("http://", "https://")
                 }
                 val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
                 this.startActivity(webIntent)
             } catch (e2: Exception) {
                 // Do nothing
-            }        }
+            }
+        }
     }
     
     override fun onBackPressed() {
