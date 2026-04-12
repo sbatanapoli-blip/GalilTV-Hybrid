@@ -71,6 +71,10 @@ class MainActivity : AppCompatActivity() {
             }
             
             webChromeClient = WebChromeClient()
+            
+            // ✅ أضف هذا السطر هنا (بعد webChromeClient وقبل loadUrl)
+            addJavascriptInterface(WebAppInterface(this@MainActivity, this@MainActivity), "Android")
+            
             loadUrl(HTML_URL)
         }
         
@@ -92,11 +96,11 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupBannerAd() {
-        adView = AdView(this).apply {
-            setAdSize(AdSize.BANNER)
+        adView = AdView(this).apply {            setAdSize(AdSize.BANNER)
             adUnitId = BANNER_AD_UNIT_ID
             loadAd(AdRequest.Builder().build())
-        }    }
+        }
+    }
     
     private fun loadInterstitialAd() {
         InterstitialAd.load(
@@ -141,11 +145,11 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     url.replace("http://", "https://")
                 }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-                startActivity(webIntent)
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))                startActivity(webIntent)
             } catch (e2: Exception) {}
         }
-    }    
+    }
+    
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
