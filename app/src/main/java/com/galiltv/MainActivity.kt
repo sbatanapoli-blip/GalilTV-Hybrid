@@ -17,21 +17,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adView: AdView
     private var interstitialAd: InterstitialAd? = null
     
-    // ✅ معرفات الإعلانات (استخدم اختبارية أثناء التطوير)
     private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
-    private val BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111" // اختباري
-    private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712" // اختباري
+    private val BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // ✅ تهيئة MobileAds
         MobileAds.initialize(this) {}
-        
-        // تحميل الإعلان البيني مسبقاً
         loadInterstitialAd()
         
-        // إعداد WebView
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -43,18 +38,16 @@ class MainActivity : AppCompatActivity() {
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url == null) return false
                     
-                    // دعم تيليجرام
                     if (url.startsWith("tg://") || url.contains("t.me/")) {
                         openTelegram(url)
                         return true
-                    }                    
-                    // دعم intent:// (مثل Vexo)
+                    }
+                    
                     if (url.startsWith("intent://")) {
                         try {
                             val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                             startActivity(intent)
-                            return true
-                        } catch (e: Exception) {
+                            return true                        } catch (e: Exception) {
                             val cleanUrl = url.substringAfter("url=").substringBefore("#")
                             try {
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl)))
@@ -63,7 +56,6 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
                     
-                    // دعم روابط الفيديو
                     if (url.contains(".ts") || url.contains(".m3u8") || url.contains("video")) {
                         try {
                             val intent = Intent(Intent.ACTION_VIEW)
@@ -82,10 +74,8 @@ class MainActivity : AppCompatActivity() {
             loadUrl(HTML_URL)
         }
         
-        // إعداد البانر
         setupBannerAd()
         
-        // تخطيط لعرض WebView + Banner
         val rootLayout = FrameLayout(this)
         rootLayout.addView(webView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -96,20 +86,18 @@ class MainActivity : AppCompatActivity() {
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             gravity = android.view.Gravity.BOTTOM
-        })        
+        })
+        
         setContentView(rootLayout)
     }
     
-    // ✅ إعداد إعلان البانر
     private fun setupBannerAd() {
         adView = AdView(this).apply {
             setAdSize(AdSize.BANNER)
             adUnitId = BANNER_AD_UNIT_ID
             loadAd(AdRequest.Builder().build())
-        }
-    }
+        }    }
     
-    // ✅ تحميل الإعلان البيني
     private fun loadInterstitialAd() {
         InterstitialAd.load(
             this,
@@ -126,44 +114,42 @@ class MainActivity : AppCompatActivity() {
         )
     }
     
-    // ✅ عرض الإعلان البيني (استدعِ هذه الدالة عند الحاجة)
     fun showInterstitialAd() {
         if (interstitialAd != null) {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     interstitialAd = null
-                    loadInterstitialAd() // إعادة التحميل للعرض القادم
+                    loadInterstitialAd()
                 }
             }
             interstitialAd?.show(this)
         } else {
-            // إذا لم يكن الإعلان جاهزاً، أعد تحميله
             loadInterstitialAd()
         }
     }
     
-    // فتح تيليجرام
     private fun openTelegram(url: String) {
         try {
-            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             startActivity(tgIntent)
         } catch (e: Exception) {
             try {
                 val webUrl = if (url.startsWith("tg://")) {
                     val username = url.substringAfter("domain=").substringBefore("&")
                     "https://t.me/$username"
-                } else url.replace("http://", "https://")
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
+                } else {
+                    url.replace("http://", "https://")
+                }
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
+                startActivity(webIntent)
             } catch (e2: Exception) {}
         }
-    }
-    
+    }    
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
-            // ✅ عرض إعلان بيني عند الخروج (اختياري)
-            // showInterstitialAd()
             super.onBackPressed()
         }
     }
