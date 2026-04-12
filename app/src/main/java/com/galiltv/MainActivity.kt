@@ -3,105 +3,173 @@ package com.galiltv
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.webkit.WebChromeClient
+import android.view.View
+import android.webkit.*
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.ads.*
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 class MainActivity : AppCompatActivity() {
+    
     private lateinit var webView: WebView
-
+    private lateinit var adView: AdView
+    private var interstitialAd: InterstitialAd? = null
+    
+    // ✅ معرفات الإعلانات (استخدم اختبارية أثناء التطوير)
     private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
+    private val BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111" // اختباري
+    private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712" // اختباري
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        webView = WebView(this)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.mediaPlaybackRequiresUserGesture = false
+        // ✅ تهيئة MobileAds
+        MobileAds.initialize(this) {}
         
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url == null) return false
-                
-                // ✅ دعم روابط تيليجرام: tg:// و https://t.me/
-                if (url.startsWith("tg://") || url.contains("t.me/")) {
-                    openTelegram(url)
-                    return true
-                }
-                // في shouldOverrideUrlLoading
-                if (url.endsWith("abs.html") || url.contains("/abs")) {
-                   return false // يفتح داخل WebView
-                }
-                
-                // ✅ دعم روابط intent:// (مثل Vexo)
-                if (url.startsWith("intent://")) {
-                    try {
-                        val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                        startActivity(intent)
+        // تحميل الإعلان البيني مسبقاً
+        loadInterstitialAd()
+        
+        // إعداد WebView
+        webView = WebView(this).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.loadWithOverviewMode = true
+            settings.useWideViewPort = true
+            
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url == null) return false
+                    
+                    // دعم تيليجرام
+                    if (url.startsWith("tg://") || url.contains("t.me/")) {
+                        openTelegram(url)
                         return true
-                    } catch (e: Exception) {
-                        val cleanUrl = url.substringAfter("url=").substringBefore("#")
+                    }                    
+                    // دعم intent:// (مثل Vexo)
+                    if (url.startsWith("intent://")) {
                         try {
-                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl)))
-                        } catch (e2: Exception) {}
-                    }
-                    return true
-                }
-                
-                // ✅ دعم روابط الفيديو (.ts, .m3u8)
-                if (url.contains(".ts") || url.contains(".m3u8") || url.contains("video")) {                    try {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        intent.setDataAndType(Uri.parse(url), "video/*")
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        startActivity(intent)
+                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                            startActivity(intent)
+                            return true
+                        } catch (e: Exception) {
+                            val cleanUrl = url.substringAfter("url=").substringBefore("#")
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl)))
+                            } catch (e2: Exception) {}
+                        }
                         return true
-                    } catch (e: Exception) {}
+                    }
+                    
+                    // دعم روابط الفيديو
+                    if (url.contains(".ts") || url.contains(".m3u8") || url.contains("video")) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW)
+                            intent.setDataAndType(Uri.parse(url), "video/*")
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
+                            return true
+                        } catch (e: Exception) {}
+                    }
+                    
+                    return false
                 }
-                
-                // باقي الروابط تفتح داخل WebView
-                return false
             }
+            
+            webChromeClient = WebChromeClient()
+            loadUrl(HTML_URL)
         }
         
-        webView.webChromeClient = WebChromeClient()
-        webView.loadUrl(HTML_URL)
-        setContentView(webView)
+        // إعداد البانر
+        setupBannerAd()
+        
+        // تخطيط لعرض WebView + Banner
+        val rootLayout = FrameLayout(this)
+        rootLayout.addView(webView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        rootLayout.addView(adView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = android.view.Gravity.BOTTOM
+        })        
+        setContentView(rootLayout)
     }
-
-    // ✅ دالة خاصة لفتح تيليجرام باحترافية
+    
+    // ✅ إعداد إعلان البانر
+    private fun setupBannerAd() {
+        adView = AdView(this).apply {
+            setAdSize(AdSize.BANNER)
+            adUnitId = BANNER_AD_UNIT_ID
+            loadAd(AdRequest.Builder().build())
+        }
+    }
+    
+    // ✅ تحميل الإعلان البيني
+    private fun loadInterstitialAd() {
+        InterstitialAd.load(
+            this,
+            INTERSTITIAL_AD_UNIT_ID,
+            AdRequest.Builder().build(),
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    interstitialAd = ad
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    interstitialAd = null
+                }
+            }
+        )
+    }
+    
+    // ✅ عرض الإعلان البيني (استدعِ هذه الدالة عند الحاجة)
+    fun showInterstitialAd() {
+        if (interstitialAd != null) {
+            interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    interstitialAd = null
+                    loadInterstitialAd() // إعادة التحميل للعرض القادم
+                }
+            }
+            interstitialAd?.show(this)
+        } else {
+            // إذا لم يكن الإعلان جاهزاً، أعد تحميله
+            loadInterstitialAd()
+        }
+    }
+    
+    // فتح تيليجرام
     private fun openTelegram(url: String) {
         try {
-            // محاولة فتح تطبيق تيليجرام مباشرة
-            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             startActivity(tgIntent)
         } catch (e: Exception) {
             try {
-                // إذا فشل، افتح النسخة الويب
                 val webUrl = if (url.startsWith("tg://")) {
                     val username = url.substringAfter("domain=").substringBefore("&")
                     "https://t.me/$username"
-                } else {
-                    url.replace("http://", "https://")
-                }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-                webIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(webIntent)
-            } catch (e2: Exception) {
-                // آخر محاولة: متجر جوجل لتثبيت تيليجرام
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.telegram.messenger")))
-                } catch (e3: Exception) {}
-            }
+                } else url.replace("http://", "https://")
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
+            } catch (e2: Exception) {}
         }
     }
-
+    
     override fun onBackPressed() {
         if (webView.canGoBack()) {
-            webView.goBack()        } else {
+            webView.goBack()
+        } else {
+            // ✅ عرض إعلان بيني عند الخروج (اختياري)
+            // showInterstitialAd()
             super.onBackPressed()
         }
+    }
+    
+    override fun onDestroy() {
+        adView.destroy()
+        super.onDestroy()
     }
 }
