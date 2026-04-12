@@ -3,7 +3,6 @@ package com.galiltv
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.webkit.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -47,8 +46,8 @@ class MainActivity : AppCompatActivity() {
                         try {
                             val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                             startActivity(intent)
-                            return true                        } catch (e: Exception) {
-                            val cleanUrl = url.substringAfter("url=").substringBefore("#")
+                            return true
+                        } catch (e: Exception) {                            val cleanUrl = url.substringAfter("url=").substringBefore("#")
                             try {
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl)))
                             } catch (e2: Exception) {}
@@ -71,10 +70,7 @@ class MainActivity : AppCompatActivity() {
             }
             
             webChromeClient = WebChromeClient()
-            
-            // ✅ أضف هذا السطر هنا (بعد webChromeClient وقبل loadUrl)
             addJavascriptInterface(WebAppInterface(this@MainActivity, this@MainActivity), "Android")
-            
             loadUrl(HTML_URL)
         }
         
@@ -96,11 +92,11 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupBannerAd() {
-        adView = AdView(this).apply {            setAdSize(AdSize.BANNER)
+        adView = AdView(this).apply {
+            setAdSize(AdSize.BANNER)
             adUnitId = BANNER_AD_UNIT_ID
             loadAd(AdRequest.Builder().build())
-        }
-    }
+        }    }
     
     private fun loadInterstitialAd() {
         InterstitialAd.load(
@@ -136,7 +132,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            startActivity(tgIntent)
+            this.startActivity(tgIntent)
         } catch (e: Exception) {
             try {
                 val webUrl = if (url.startsWith("tg://")) {
@@ -145,9 +141,11 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     url.replace("http://", "https://")
                 }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))                startActivity(webIntent)
-            } catch (e2: Exception) {}
-        }
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
+                this.startActivity(webIntent)
+            } catch (e2: Exception) {
+                // Do nothing
+            }        }
     }
     
     override fun onBackPressed() {
