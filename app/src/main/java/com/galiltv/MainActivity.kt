@@ -9,12 +9,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
-// ✅ إضافة استيراد إعلان المكافأة
-import com.google.android.gms.ads.rewarded.RewardedAd
 
 class MainActivity : AppCompatActivity() {
     
-    // ✅ أهم تعديل: إزالة 'private' ليصبح الويب فيو متاحاً لـ WebAppInterface
+    // ✅ مهم: lateinit var بدون private ليكون متاحاً لـ WebAppInterface
     lateinit var webView: WebView
     
     private lateinit var adView: AdView
@@ -27,9 +25,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // ✅ تهيئة AdMob
         MobileAds.initialize(this) {}
         loadInterstitialAd()
         
+        // ✅ إعداد WebView
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -37,17 +37,20 @@ class MainActivity : AppCompatActivity() {
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
             
+            // ✅ معالجة الروابط
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url == null) return false
                     
+                    // دعم تيليجرام
                     if (url.startsWith("tg://") || url.contains("t.me/")) {
                         openTelegram(url)
                         return true
                     }
-                    
+                                        // دعم intent:// (مثل Vexo)
                     if (url.startsWith("intent://")) {
-                        try {                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        try {
+                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                             startActivity(intent)
                             return true
                         } catch (e: Exception) {
@@ -59,6 +62,7 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
                     
+                    // دعم روابط الفيديو
                     if (url.contains(".ts") || url.contains(".m3u8") || url.contains("video")) {
                         try {
                             val intent = Intent(Intent.ACTION_VIEW)
@@ -81,8 +85,10 @@ class MainActivity : AppCompatActivity() {
             loadUrl(HTML_URL)
         }
         
+        // ✅ إعداد البانر
         setupBannerAd()
         
+        // ✅ تخطيط العرض
         val rootLayout = FrameLayout(this)
         rootLayout.addView(webView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -90,13 +96,13 @@ class MainActivity : AppCompatActivity() {
         ))
         rootLayout.addView(adView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
+            FrameLayout.LayoutParams.WRAP_CONTENT        ).apply {
             gravity = android.view.Gravity.BOTTOM
         })
         
         setContentView(rootLayout)
-    }    
+    }
+    
     private fun setupBannerAd() {
         adView = AdView(this).apply {
             setAdSize(AdSize.BANNER)
@@ -121,7 +127,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
     
-    // ✅ هذه الدالة يستدعيها WebAppInterface لعرض الإعلان البيني
+    // ✅ دالة عرض الإعلان البيني (يستدعيها WebAppInterface)
     fun showInterstitialAd() {
         if (interstitialAd != null) {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
@@ -139,13 +145,13 @@ class MainActivity : AppCompatActivity() {
     private fun openTelegram(url: String) {
         try {
             val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            this.startActivity(tgIntent)
+            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK            this.startActivity(tgIntent)
         } catch (e: Exception) {
             try {
                 val webUrl = if (url.startsWith("tg://")) {
                     val username = url.substringAfter("domain=").substringBefore("&")
-                    "https://t.me/$username"                } else {
+                    "https://t.me/$username"
+                } else {
                     url.replace("http://", "https://")
                 }
                 val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
