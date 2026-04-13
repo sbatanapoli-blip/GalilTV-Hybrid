@@ -1,6 +1,5 @@
 package com.galiltv
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -23,11 +22,11 @@ class WebAppInterface(
     // ✅ متغير إعلان المكافأة
     private var rewardedAd: RewardedAd? = null
     
-    // ✅ معرفات الإعلانات (استخدم الاختبارية أثناء التطوير)
-    private val REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917" // اختباري
+    // ✅ معرف إعلان المكافأة (اختباري)
+    private val REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
     // ============================================
-    // 🎬 دالة تشغيل الفيديو (نفس الكود الرائع)
+    // 🎬 دالة تشغيل الفيديو
     // ============================================
     @JavascriptInterface
     fun playVideo(url: String) {
@@ -47,8 +46,8 @@ class WebAppInterface(
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(Uri.parse(url), "video/*")
                         setPackage(playerPackage)
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP                        putExtra("title", "Galil TV")
-                    }
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("title", "Galil TV")                    }
                     context.startActivity(intent)
                     launched = true
                     break
@@ -79,7 +78,7 @@ class WebAppInterface(
     }
 
     // ============================================
-    // 🔲 دالة الإعلان البيني (Interstitial)
+    // 🔲 دالة الإعلان البيني
     // ============================================
     @JavascriptInterface
     fun showInterstitialAd() {
@@ -96,8 +95,8 @@ class WebAppInterface(
     @JavascriptInterface
     fun loadRewardedAd() {
         Handler(Looper.getMainLooper()).post {
-            RewardedAd.load(                context,
-                REWARDED_AD_UNIT_ID,
+            RewardedAd.load(
+                context,                REWARDED_AD_UNIT_ID,
                 AdRequest.Builder().build(),
                 object : RewardedAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedAd) {
@@ -122,7 +121,7 @@ class WebAppInterface(
                 rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
                         rewardedAd = null
-                        loadRewardedAd() // إعادة التحميل للعرض القادم
+                        loadRewardedAd()
                     }
                     
                     override fun onAdFailedToShowFullScreenContent(error: AdError) {
@@ -132,9 +131,8 @@ class WebAppInterface(
                 }
                 
                 rewardedAd?.show(activity) { rewardItem ->
-                    // ✅ المستخدم شاهد الإعلان كاملاً → كافئه!
                     notifyWeb("onAdRewarded")
-                    loadRewardedAd() // أعد التحميل
+                    loadRewardedAd()
                 }
             } else {
                 notifyWeb("onAdNotAvailable")
@@ -145,9 +143,9 @@ class WebAppInterface(
     // ============================================
     // 🔗 دالة مساعدة لإرسال الأحداث للويب
     // ============================================
-    private fun notifyWeb(eventName: String) {        Handler(Looper.getMainLooper()).post {
-            activity.webView.evaluateJavascript(
-                "if (typeof RewardedAds !== 'undefined') RewardedAds.$eventName();",
+    private fun notifyWeb(eventName: String) {
+        Handler(Looper.getMainLooper()).post {
+            activity.webView.evaluateJavascript(                "if (typeof RewardedAds !== 'undefined') RewardedAds.$eventName();",
                 null
             )
         }
