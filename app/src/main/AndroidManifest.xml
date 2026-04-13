@@ -17,10 +17,12 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
-    <!-- ✅ السماح بفتح روابط intent:// والتعرف على Vexo -->
+    <!-- ✅ السماح بفتح روابط intent:// والتعرف على المشغلات -->
     <queries>
         <package android:name="com.vexo.player" />
         <package android:name="org.videolan.vlc" />
+        <package android:name="com.mxtech.videoplayer.ad" />
+        <package android:name="com.brouken.player" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="intent" />
@@ -39,10 +41,11 @@
         android:allowBackup="true"
         android:icon="@android:drawable/ic_menu_compass"
         android:label="Galil TV"
-        
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:name="androidx.multidex.MultiDexApplication">
 
+        <!-- ✅ معرف تطبيق AdMob (اختباري) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
