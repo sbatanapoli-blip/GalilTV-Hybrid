@@ -142,10 +142,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    // ✅ دالة فتح تيليجرام (مصححة)
     private fun openTelegram(url: String) {
         try {
-            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK            this.startActivity(tgIntent)
+            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            this.startActivity(tgIntent)
         } catch (e: Exception) {
             try {
                 val webUrl = if (url.startsWith("tg://")) {
