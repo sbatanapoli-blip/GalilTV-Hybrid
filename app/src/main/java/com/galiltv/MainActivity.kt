@@ -144,23 +144,20 @@ class MainActivity : AppCompatActivity() {
     
     // ✅ دالة فتح تيليجرام (مصححة)
     private fun openTelegram(url: String) {
+    try {
+        // محاولة فتح تطبيق تيليجرام مباشرة
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        startActivity(intent)
+    } catch (e: Exception) {
+        // إذا فشل، افتح النسخة الويب
         try {
-            val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))            tgIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            this.startActivity(tgIntent)
-        } catch (e: Exception) {
-            try {
-                val webUrl = if (url.startsWith("tg://")) {
-                    val username = url.substringAfter("domain=").substringBefore("&")
-                    "https://t.me/$username"
-                } else {
-                    url.replace("http://", "https://")
-                }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-                this.startActivity(webIntent)
-            } catch (e2: Exception) {
-                // Do nothing
-            }
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/galiltv04"))
+            startActivity(webIntent)
+        } catch (e2: Exception) {
+            // Do nothing
         }
+    }
     }
     
     override fun onBackPressed() {
