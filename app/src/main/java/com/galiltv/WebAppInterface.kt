@@ -23,7 +23,7 @@ class WebAppInterface(
     private var rewardedAd: RewardedAd? = null
     
     // ✅ معرف إعلان المكافأة (اختباري)
-    private val REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    private val REWARDED_AD_UNIT_ID = "ca-app-pub-2734159647347391/2152173198"
 
     // ============================================
     // 🎬 دالة تشغيل الفيديو
