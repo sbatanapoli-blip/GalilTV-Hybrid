@@ -22,8 +22,8 @@ class MainActivity : AppCompatActivity() {
     private var backPressedTime: Long = 0
     
     private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
-    private val BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
-    private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    private val BANNER_AD_UNIT_ID = "ca-app-pub-2734159647347391/8538520168"
+    private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-2734159647347391/6674774154"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
