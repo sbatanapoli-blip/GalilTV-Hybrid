@@ -48,7 +48,7 @@
         <!-- ✅ معرف تطبيق AdMob (اختباري) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-2734159647347391~8340129481"/>
+            android:value="ca-app-pub-2734159647347391~4180418190"/>
         
         <activity
             android:name=".MainActivity"
