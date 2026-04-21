@@ -51,5 +51,5 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.8.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
-    implementation 'com.google.android.gms:play-services-ads:22.6.0'
+    implementation 'com.google.android.gms:play-services-ads:25.2.0'
 }
