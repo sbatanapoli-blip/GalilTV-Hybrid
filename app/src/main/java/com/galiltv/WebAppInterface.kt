@@ -47,7 +47,8 @@ class WebAppInterface(
                         setDataAndType(Uri.parse(url), "video/*")
                         setPackage(playerPackage)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra("title", "Galil TV")                    }
+                        putExtra("title", "Galil TV")
+                    }
                     context.startActivity(intent)
                     launched = true
                     break
@@ -89,31 +90,35 @@ class WebAppInterface(
 
     // ============================================
     // 🎁 دوال إعلان المكافأة (Rewarded Ads)
+    // المعدلة لتتوافق مع كود JavaScript
     // ============================================
     
-    // 1️⃣ تحميل الإعلان مسبقاً
+    // 1️⃣ تحميل الإعلان مسبقاً (بنفس الاسم الذي يطلبه JavaScript)
     @JavascriptInterface
     fun loadRewardedAd() {
         Handler(Looper.getMainLooper()).post {
             RewardedAd.load(
-                context,                REWARDED_AD_UNIT_ID,
+                context,
+                REWARDED_AD_UNIT_ID,
                 AdRequest.Builder().build(),
                 object : RewardedAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedAd) {
                         rewardedAd = ad
-                        notifyWeb("onAdLoaded")
+                        // ✅ إعلام JavaScript بأن الإعلان جاهز
+                        notifyWebAdLoaded()
                     }
                     
                     override fun onAdFailedToLoad(error: LoadAdError) {
                         rewardedAd = null
-                        notifyWeb("onAdFailed")
+                        // ✅ إعلام JavaScript بفشل التحميل
+                        notifyWebAdFailed()
                     }
                 }
             )
         }
     }
     
-    // 2️⃣ عرض الإعلان
+    // 2️⃣ عرض الإعلان (بنفس الاسم الذي يطلبه JavaScript)
     @JavascriptInterface
     fun showRewardedAd() {
         Handler(Looper.getMainLooper()).post {
@@ -121,31 +126,71 @@ class WebAppInterface(
                 rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
                         rewardedAd = null
+                        // ✅ تحميل إعلان جديد بعد الإغلاق
                         loadRewardedAd()
                     }
                     
                     override fun onAdFailedToShowFullScreenContent(error: AdError) {
                         rewardedAd = null
-                        notifyWeb("onAdNotAvailable")
+                        // ✅ إعلام JavaScript بأن الإعلان غير متاح
+                        notifyWebAdNotAvailable()
                     }
                 }
                 
                 rewardedAd?.show(activity) { rewardItem ->
-                    notifyWeb("onAdRewarded")
-                    loadRewardedAd()
+                    // ✅ مكافأة المستخدم (نمرر الـ rewardAmount و rewardType)
+                    val rewardAmount = rewardItem.amount
+                    val rewardType = rewardItem.type
+                    notifyWebAdRewarded()
+                    loadRewardedAd() // تحميل إعلان جديد
                 }
             } else {
-                notifyWeb("onAdNotAvailable")
+                // ✅ إذا لم يكن الإعلان جاهزاً، نعلم JavaScript
+                notifyWebAdNotAvailable()
             }
         }
     }
     
     // ============================================
-    // 🔗 دالة مساعدة لإرسال الأحداث للويب
+    // 📡 دوال إرسال الأحداث للويب (معدلة لتتوافق مع كود HTML)
     // ============================================
-    private fun notifyWeb(eventName: String) {
+    
+    private fun notifyWebAdLoaded() {
         Handler(Looper.getMainLooper()).post {
-            activity.webView.evaluateJavascript(                "if (typeof RewardedAds !== 'undefined') RewardedAds.$eventName();",
+            // ✅ استدعاء الدالة المناسبة في JavaScript
+            activity.webView.evaluateJavascript(
+                "if (window.RewardedAds && window.RewardedAds.onAdLoaded) window.RewardedAds.onAdLoaded(); " +
+                "else if (typeof RewardedAds !== 'undefined' && RewardedAds.preloadAd) RewardedAds.preloadAd(); " +
+                "else if (window.Android && window.Android.onAdLoaded) window.Android.onAdLoaded();",
+                null
+            )
+        }
+    }
+    
+    private fun notifyWebAdFailed() {
+        Handler(Looper.getMainLooper()).post {
+            activity.webView.evaluateJavascript(
+                "if (window.RewardedAds && window.RewardedAds.onAdFailed) window.RewardedAds.onAdFailed();",
+                null
+            )
+        }
+    }
+    
+    private fun notifyWebAdRewarded() {
+        Handler(Looper.getMainLooper()).post {
+            // ✅ استدعاء الدالة التي تمنح المكافأة في JavaScript
+            activity.webView.evaluateJavascript(
+                "if (window.RewardedAds && window.RewardedAds.onAdRewarded) window.RewardedAds.onAdRewarded(); " +
+                "else if (typeof RewardedAds !== 'undefined' && RewardedAds.onAdRewarded) RewardedAds.onAdRewarded();",
+                null
+            )
+        }
+    }
+    
+    private fun notifyWebAdNotAvailable() {
+        Handler(Looper.getMainLooper()).post {
+            activity.webView.evaluateJavascript(
+                "if (window.RewardedAds && window.RewardedAds.onAdNotAvailable) window.RewardedAds.onAdNotAvailable();",
                 null
             )
         }
