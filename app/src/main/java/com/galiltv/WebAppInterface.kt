@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.google.android.gms.ads.AdError
@@ -22,7 +23,7 @@ class WebAppInterface(
     // ✅ متغير إعلان المكافأة
     private var rewardedAd: RewardedAd? = null
     
-    // ✅ معرف إعلان المكافأة (اختباري)
+    // ✅ معرف إعلان المكافأة
     private val REWARDED_AD_UNIT_ID = "ca-app-pub-2734159647347391/3988846505"
 
     // ============================================
@@ -90,13 +91,21 @@ class WebAppInterface(
 
     // ============================================
     // 🎁 دوال إعلان المكافأة (Rewarded Ads)
-    // المعدلة لتتوافق مع كود JavaScript
     // ============================================
     
-    // 1️⃣ تحميل الإعلان مسبقاً (بنفس الاسم الذي يطلبه JavaScript)
+    // 1️⃣ تحميل الإعلان مسبقاً
     @JavascriptInterface
     fun loadRewardedAd() {
         Handler(Looper.getMainLooper()).post {
+            Log.d("GalilTV", "🔄 Loading rewarded ad...")
+            
+            // تجنب التحميل المتكرر إذا كان الإعلان موجوداً بالفعل
+            if (rewardedAd != null) {
+                Log.d("GalilTV", "✅ Rewarded ad already loaded")
+                notifyWeb("onAdLoaded")
+                return@post
+            }
+            
             RewardedAd.load(
                 context,
                 REWARDED_AD_UNIT_ID,
@@ -104,95 +113,105 @@ class WebAppInterface(
                 object : RewardedAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedAd) {
                         rewardedAd = ad
-                        // ✅ إعلام JavaScript بأن الإعلان جاهز
-                        notifyWebAdLoaded()
+                        Log.d("GalilTV", "✅ Rewarded ad loaded successfully")
+                        notifyWeb("onAdLoaded")
                     }
                     
                     override fun onAdFailedToLoad(error: LoadAdError) {
                         rewardedAd = null
-                        // ✅ إعلام JavaScript بفشل التحميل
-                        notifyWebAdFailed()
+                        Log.e("GalilTV", "❌ Rewarded ad failed to load: ${error.message}")
+                        notifyWeb("onAdFailed")
+                        
+                        // ✅ محاولة إعادة التحميل بعد 30 ثانية
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            loadRewardedAd()
+                        }, 30000)
                     }
                 }
             )
         }
     }
     
-    // 2️⃣ عرض الإعلان (بنفس الاسم الذي يطلبه JavaScript)
+    // 2️⃣ عرض الإعلان
     @JavascriptInterface
     fun showRewardedAd() {
         Handler(Looper.getMainLooper()).post {
+            Log.d("GalilTV", "🎬 Showing rewarded ad...")
+            
             if (rewardedAd != null) {
                 rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
+                        Log.d("GalilTV", "📺 Rewarded ad dismissed")
                         rewardedAd = null
-                        // ✅ تحميل إعلان جديد بعد الإغلاق
+                        // تحميل إعلان جديد بعد الإغلاق
                         loadRewardedAd()
                     }
                     
                     override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        Log.e("GalilTV", "❌ Failed to show rewarded ad: ${error.message}")
                         rewardedAd = null
-                        // ✅ إعلام JavaScript بأن الإعلان غير متاح
-                        notifyWebAdNotAvailable()
+                        notifyWeb("onAdNotAvailable")
+                        // محاولة تحميل إعلان جديد
+                        loadRewardedAd()
+                    }
+                    
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d("GalilTV", "👀 Rewarded ad shown")
                     }
                 }
                 
                 rewardedAd?.show(activity) { rewardItem ->
-                    // ✅ مكافأة المستخدم (نمرر الـ rewardAmount و rewardType)
                     val rewardAmount = rewardItem.amount
                     val rewardType = rewardItem.type
-                    notifyWebAdRewarded()
-                    loadRewardedAd() // تحميل إعلان جديد
+                    Log.d("GalilTV", "💰 Reward granted: $rewardAmount $rewardType")
+                    notifyWeb("onAdRewarded")
+                    // تحميل إعلان جديد للمرة القادمة
+                    loadRewardedAd()
                 }
             } else {
-                // ✅ إذا لم يكن الإعلان جاهزاً، نعلم JavaScript
-                notifyWebAdNotAvailable()
+                Log.e("GalilTV", "❌ Rewarded ad not ready")
+                notifyWeb("onAdNotAvailable")
+                // محاولة تحميل إعلان جديد
+                loadRewardedAd()
             }
         }
     }
     
+    // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
+    @JavascriptInterface
+    fun refreshRewardedAd() {
+        Handler(Looper.getMainLooper()).post {
+            Log.d("GalilTV", "🔄 Refreshing rewarded ad...")
+            rewardedAd = null
+            loadRewardedAd()
+        }
+    }
+    
+    // 4️⃣ دالة للتحقق من جاهزية الإعلان
+    @JavascriptInterface
+    fun isRewardedAdReady(): Boolean {
+        val isReady = rewardedAd != null
+        Log.d("GalilTV", "🔍 Rewarded ad ready: $isReady")
+        return isReady
+    }
+    
     // ============================================
-    // 📡 دوال إرسال الأحداث للويب (معدلة لتتوافق مع كود HTML)
+    // 📡 دوال إرسال الأحداث للويب
     // ============================================
     
-    private fun notifyWebAdLoaded() {
+    private fun notifyWeb(eventName: String) {
         Handler(Looper.getMainLooper()).post {
-            // ✅ استدعاء الدالة المناسبة في JavaScript
-            activity.webView.evaluateJavascript(
-                "if (window.RewardedAds && window.RewardedAds.onAdLoaded) window.RewardedAds.onAdLoaded(); " +
-                "else if (typeof RewardedAds !== 'undefined' && RewardedAds.preloadAd) RewardedAds.preloadAd(); " +
-                "else if (window.Android && window.Android.onAdLoaded) window.Android.onAdLoaded();",
-                null
-            )
-        }
-    }
-    
-    private fun notifyWebAdFailed() {
-        Handler(Looper.getMainLooper()).post {
-            activity.webView.evaluateJavascript(
-                "if (window.RewardedAds && window.RewardedAds.onAdFailed) window.RewardedAds.onAdFailed();",
-                null
-            )
-        }
-    }
-    
-    private fun notifyWebAdRewarded() {
-        Handler(Looper.getMainLooper()).post {
-            // ✅ استدعاء الدالة التي تمنح المكافأة في JavaScript
-            activity.webView.evaluateJavascript(
-                "if (window.RewardedAds && window.RewardedAds.onAdRewarded) window.RewardedAds.onAdRewarded(); " +
-                "else if (typeof RewardedAds !== 'undefined' && RewardedAds.onAdRewarded) RewardedAds.onAdRewarded();",
-                null
-            )
-        }
-    }
-    
-    private fun notifyWebAdNotAvailable() {
-        Handler(Looper.getMainLooper()).post {
-            activity.webView.evaluateJavascript(
-                "if (window.RewardedAds && window.RewardedAds.onAdNotAvailable) window.RewardedAds.onAdNotAvailable();",
-                null
-            )
+            val jsCode = when (eventName) {
+                "onAdLoaded" -> "if (window.RewardedAds && window.RewardedAds.onAdLoaded) window.RewardedAds.onAdLoaded();"
+                "onAdFailed" -> "if (window.RewardedAds && window.RewardedAds.onAdFailed) window.RewardedAds.onAdFailed();"
+                "onAdRewarded" -> "if (window.RewardedAds && window.RewardedAds.onAdRewarded) window.RewardedAds.onAdRewarded();"
+                "onAdNotAvailable" -> "if (window.RewardedAds && window.RewardedAds.onAdNotAvailable) window.RewardedAds.onAdNotAvailable();"
+                else -> ""
+            }
+            
+            if (jsCode.isNotEmpty()) {
+                activity.webView.evaluateJavascript(jsCode, null)
+            }
         }
     }
 
