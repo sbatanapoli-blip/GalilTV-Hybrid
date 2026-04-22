@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.webkit.*
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
             settings.mediaPlaybackRequiresUserGesture = false
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
             
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
@@ -47,7 +49,8 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
                     
-                    if (url.startsWith("intent://")) {                        try {
+                    if (url.startsWith("intent://")) {
+                        try {
                             val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                             startActivity(intent)
                             return true
@@ -71,6 +74,14 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     return false
+                }
+                
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    // ✅ تحميل الإعلانات بعد اكتمال تحميل الصفحة
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        loadRewardedAdViaJS()
+                    }, 3000)
                 }
             }
             
@@ -96,7 +107,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(rootLayout)
     }
     
-    private fun setupBannerAd() {        adView = AdView(this).apply {
+    private fun setupBannerAd() {
+        adView = AdView(this).apply {
             setAdSize(AdSize.BANNER)
             adUnitId = BANNER_AD_UNIT_ID
             loadAd(AdRequest.Builder().build())
@@ -111,11 +123,21 @@ class MainActivity : AppCompatActivity() {
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     interstitialAd = ad
+                    Log.d("GalilTV", "✅ Interstitial ad loaded")
                 }
+                
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
+                    Log.e("GalilTV", "❌ Interstitial ad failed: ${error.message}")
                 }
             }
+        )
+    }
+    
+    private fun loadRewardedAdViaJS() {
+        webView.evaluateJavascript(
+            "if (window.RewardedAds && window.RewardedAds.preloadAd) window.RewardedAds.preloadAd();",
+            null
         )
     }
     
@@ -123,6 +145,11 @@ class MainActivity : AppCompatActivity() {
         if (interstitialAd != null) {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
+                    interstitialAd = null
+                    loadInterstitialAd()
+                }
+                
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
                     interstitialAd = null
                     loadInterstitialAd()
                 }
@@ -145,13 +172,34 @@ class MainActivity : AppCompatActivity() {
                     val username = url.substringAfter("domain=").substringBefore("&")
                     webUrl = "https://t.me/$username"
                 } else {
-                    webUrl = url.replace("http://", "https://")                }
+                    webUrl = url.replace("http://", "https://")
+                }
                 val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
                 startActivity(webIntent)
             } catch (e2: Exception) {
                 // Do nothing
             }
         }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // ✅ إعادة تحميل Banner Ad عند العودة للتطبيق
+        if (::adView.isInitialized) {
+            adView.loadAd(AdRequest.Builder().build())
+        }
+        
+        // ✅ إعادة تحميل Interstitial Ad
+        if (interstitialAd == null) {
+            loadInterstitialAd()
+        }
+        
+        // ✅ إعادة تحميل Rewarded Ad
+        loadRewardedAdViaJS()
+    }
+    
+    override fun onPause() {
+        super.onPause()
     }
     
     override fun onBackPressed() {
@@ -181,7 +229,10 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
-        adView.destroy()
+        if (::adView.isInitialized) {
+            adView.destroy()
+        }
+        webView.destroy()
         super.onDestroy()
     }
 }
