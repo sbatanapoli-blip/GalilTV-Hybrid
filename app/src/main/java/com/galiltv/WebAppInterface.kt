@@ -136,77 +136,92 @@ class WebAppInterface(
     
     // 2️⃣ عرض الإعلان - ✅ النسخة المُصححة بالكامل
     @JavascriptInterface
-    fun showRewardedAd() {
-        Handler(Looper.getMainLooper()).post {
-            Log.d("GalilTV", "🎬 [DEBUG] showRewardedAd() called")
-            rewardGranted = false  // ✅ إعادة تعيين حالة المكافأة
+fun showRewardedAd() {
+    Handler(Looper.getMainLooper()).post {
+        Log.d("GalilTV", "🎬 showRewardedAd() called")
+        rewardGranted = false
+        
+        if (rewardedAd != null) {
+            Log.d("GalilTV", "✅ rewardedAd is not null")
             
-            if (rewardedAd != null) {
-                Log.d("GalilTV", "✅ [DEBUG] rewardedAd is not null")
-                
-                rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                                        // ✅ عندما يُغلق الإعلان (سواء بعد المشاهدة أو مبكراً)
-                    override fun onAdDismissedFullScreenContent() {
-                        Log.d("GalilTV", "📺 [DEBUG] onAdDismissedFullScreenContent()")
-                        Log.d("GalilTV", "💰 [DEBUG] rewardGranted = $rewardGranted")
-                        rewardedAd = null
-                        
-                        // ✅ فقط إذا لم تُمنح المكافأة، أعلم الويب أن الإعلان أُغلق بدون مكافأة
-                        if (!rewardGranted) {
-                            Log.d("GalilTV", "⚠️ [DEBUG] Ad closed without reward")
-                            notifyWeb("onAdNotAvailable")
-                        }
-                        
-                        // تحميل إعلان جديد للاستخدام القادم
-                        loadRewardedAd()
-                    }
+            rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    Log.d("GalilTV", "📺 onAdDismissedFullScreenContent()")
+                    Log.d("GalilTV", "💰 rewardGranted = $rewardGranted")
+                    rewardedAd = null
                     
-                    // ✅ عندما يفشل عرض الإعلان
-                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                        Log.e("GalilTV", "❌ [DEBUG] onAdFailedToShowFullScreenContent: ${error.message}")
-                        rewardedAd = null
-                        rewardGranted = false
+                    if (!rewardGranted) {
+                        Log.d("GalilTV", "⚠️ Ad closed without reward")
                         notifyWeb("onAdNotAvailable")
-                        loadRewardedAd()
                     }
                     
-                    // ✅ عندما يُعرض الإعلان بنجاح
-                    override fun onAdShowedFullScreenContent() {
-                        Log.d("GalilTV", "👀 [DEBUG] onAdShowedFullScreenContent")
-                    }
-                }
-                
-                // ✅ عرض الإعلان مع المكافأة
-                Log.d("GalilTV", "🎬 [DEBUG] Showing ad with reward callback...")
-                rewardedAd?.show(activity) { rewardItem ->
-                    val rewardAmount = rewardItem.amount
-                    val rewardType = rewardItem.type
-                    Log.d("GalilTV", "💰 [DEBUG] Reward granted: $rewardAmount $rewardType")
-                    
-                    // ✅ أظهر Toast للتأكد أن المكافأة وُجدت
-                    Handler(Looper.getMainLooper()).post {
-                        Toast.makeText(context, "✅ Reward Granted! Opening...", Toast.LENGTH_SHORT).show()
-                    }
-                    
-                    // ✅ علامة: المكافأة مُنحت بنجاح
-                    rewardGranted = true
-                    
-                    // ✅ أضف تأخير 500 ميلي ثانية قبل استدعاء notifyWeb
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        Log.d("GalilTV", "📡 [DEBUG] Calling notifyWeb(onAdRewarded) after delay...")
-                        notifyWeb("onAdRewarded")                    }, 500)
-                    
-                    Log.d("GalilTV", "🔄 [DEBUG] Loading next ad...")
                     loadRewardedAd()
                 }
-            } else {
-                Log.e("GalilTV", "❌ [DEBUG] rewardedAd is null!")
-                notifyWeb("onAdNotAvailable")
-                // محاولة تحميل إعلان جديد
+                
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    Log.e("GalilTV", "❌ onAdFailedToShow: ${error.message}")
+                    rewardedAd = null
+                    rewardGranted = false
+                    notifyWeb("onAdNotAvailable")
+                    loadRewardedAd()
+                }
+                
+                override fun onAdShowedFullScreenContent() {
+                    Log.d("GalilTV", "👀 onAdShowedFullScreenContent")
+                }
+            }
+            
+            Log.d("GalilTV", "🎬 Showing ad...")
+            rewardedAd?.show(activity) { rewardItem ->
+                val rewardAmount = rewardItem.amount
+                val rewardType = rewardItem.type
+                Log.d("GalilTV", "💰 Reward granted: $rewardAmount $rewardType")
+                
+                rewardGranted = true
+                
+                // ✅ أظهر Toast
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, "✅ Reward Granted! Opening...", Toast.LENGTH_SHORT).show()
+                }
+                
+                // ✅ استخدم postDelayed أطول (2 ثانية)
+                Handler(Looper.getMainLooper()).postDelayed({
+                    Log.d("GalilTV", "📡 Calling notifyWeb...")
+                    
+                    // ✅ نفذ الكود مباشرة في WebView
+                    activity.webView.post {
+                        val jsCode = """
+                            (function() {
+                                console.log('🎁 Executing onAdRewarded...');
+                                if (window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function') {
+                                    try {
+                                        window.RewardedAds.onAdRewarded();
+                                        console.log('✅ Success!');
+                                    } catch (e) {
+                                        console.error('❌ Error:', e);
+                                    }
+                                } else {
+                                    console.error('❌ onAdRewarded not found!');
+                                }
+                            })();
+                        """.trimIndent()
+                        
+                        Log.d("GalilTV-JS", "📝 Executing: $jsCode")
+                        activity.webView.evaluateJavascript(jsCode) { result ->
+                            Log.d("GalilTV-JS", "✅ Result: $result")
+                        }
+                    }
+                }, 2000)  // ✅ انتظر ثانيتين
+                
                 loadRewardedAd()
             }
+        } else {
+            Log.e("GalilTV", "❌ rewardedAd is null!")
+            notifyWeb("onAdNotAvailable")
+            loadRewardedAd()
         }
     }
+}
     
     // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
     @JavascriptInterface
