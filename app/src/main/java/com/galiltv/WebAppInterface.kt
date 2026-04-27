@@ -156,37 +156,23 @@ fun showRewardedAd() {
             }
             
             rewardedAd?.show(activity) { rewardItem ->
-                rewardGranted = true
-                Toast.makeText(context, "✅ Opening category...", Toast.LENGTH_SHORT).show()
-                
-                // ✅ الحل المباشر: نفذ الجافاسكريبت بطريقة بسيطة جداً
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        // الطريقة 1: loadUrl مع كود بسيط
-                        activity.webView.loadUrl("javascript:window.RewardedAds.onAdRewarded()")
-                    } catch (e: Exception) {
-                        Log.e("GalilTV", "❌ loadUrl failed: ${e.message}")
-                    }
-                    
-                    // الطريقة 2: evaluateJavascript كاحتياط
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        try {
-                            activity.webView.evaluateJavascript("javascript:window.RewardedAds.onAdRewarded()", null)
-                        } catch (e: Exception) {
-                            Log.e("GalilTV", "❌ evaluateJavascript failed: ${e.message}")
-                        }
-                    }, 500)
-                    
-                }, 1000)  // انتظر ثانية واحدة
-                
-                loadRewardedAd()
-            }
-        } else {
-            notifyWeb("onAdNotAvailable")
-            loadRewardedAd()
+    rewardGranted = true
+    Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
+    
+    // ✅ احصل على الـ Category ID من الويب أولاً
+    activity.webView.evaluateJavascript(
+        "(function(){ return RewardedAds.currentCategoryId || ''; })();"
+    ) { categoryId ->
+        val catId = categoryId?.replace("\"", "") ?: ""
+        if (catId.isNotEmpty()) {
+            Log.d("GalilTV", "🎯 Opening category: $catId")
+            // ✅ افتح الفئة مباشرة من الأندرويد
+            openCategoryAfterReward(catId, "Premium")
         }
     }
-}
+    
+    loadRewardedAd()
+            }
     
     // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
     @JavascriptInterface
@@ -206,6 +192,22 @@ fun showRewardedAd() {
         Log.d("GalilTV", "🔍 Rewarded ad ready: $isReady")
         return isReady
     }
+
+    // ✅ دالة جديدة: تفتح الفئة مباشرة من الأندرويد
+@JavascriptInterface
+fun openCategoryAfterReward(categoryId: String, categoryName: String) {
+    Log.d("GalilTV", "🎯 Opening category from Android: $categoryId - $categoryName")
+    
+    activity.runOnUiThread {
+        val jsCode = "if(window.Channels&&window.Channels.load){window.Channels.load('$categoryId', '$categoryName');}"
+        try {
+            activity.webView.loadUrl("javascript:$jsCode")
+            Toast.makeText(context, "🎬 Opening $categoryName...", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("GalilTV", "❌ Failed to open category: ${e.message}")
+        }
+    }
+}
     
     // ============================================
     // 📡 دوال إرسال الأحداث للويب - ✅ محسّنة باستخدام loadUrl + evaluateJavascript
