@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -21,13 +20,9 @@ class WebAppInterface(
     private val context: Context,
     private val activity: MainActivity
 ) {
-    // ✅ متغير إعلان المكافأة
+    
     private var rewardedAd: RewardedAd? = null
-    
-    // ✅ معرف إعلان المكافأة (تأكد من أنه من نوع Rewarded في AdMob)
     private val REWARDED_AD_UNIT_ID = "ca-app-pub-2734159647347391/2152173198"
-    
-    // ✅ متغير لتتبع منح المكافأة (لحل مشكلة إغلاق الإعلان مبكراً)
     private var rewardGranted = false
 
     // ============================================
@@ -36,18 +31,14 @@ class WebAppInterface(
     @JavascriptInterface
     fun playVideo(url: String) {
         val players = listOf(
-            "com.vexo.player",
-            "org.videolan.vlc",
-            "com.mxtech.videoplayer.ad",
-            "com.brouken.player",
-            "com.archos.mediacenter.videofree"
+            "com.vexo.player", "org.videolan.vlc", "com.mxtech.videoplayer.ad",
+            "com.brouken.player", "com.archos.mediacenter.videofree"
         )
-
         var launched = false
-
         for (playerPackage in players) {
             if (isAppInstalled(playerPackage)) {
-                try {                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(Uri.parse(url), "video/*")
                         setPackage(playerPackage)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -56,19 +47,14 @@ class WebAppInterface(
                     context.startActivity(intent)
                     launched = true
                     break
-                } catch (e: Exception) {
-                    continue
-                }
-            }
+                } catch (e: Exception) { continue }            }
         }
-
         if (!launched) {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(context, "No video player found. Install VLC or Vexo.", Toast.LENGTH_LONG).show()
             }
-            try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.videolan.vlc")))
-            } catch (e: Exception) {}
+            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.videolan.vlc"))) } 
+            catch (e: Exception) {}
         }
     }
 
@@ -93,155 +79,118 @@ class WebAppInterface(
     }
 
     // ============================================
-    // 🎁 دوال إعلان المكافأة (Rewarded Ads) - ✅ مُصححة بالكامل
+    // 🎁 دوال إعلان المكافأة
     // ============================================
     
-    // 1️⃣ تحميل الإعلان مسبقاً    @JavascriptInterface
+    @JavascriptInterface
     fun loadRewardedAd() {
         Handler(Looper.getMainLooper()).post {
-            Log.d("GalilTV", "🔄 Loading rewarded ad...")
-            
-            // تجنب التحميل المتكرر إذا كان الإعلان موجوداً بالفعل
-            if (rewardedAd != null) {
-                Log.d("GalilTV", "✅ Rewarded ad already loaded")
-                notifyWeb("onAdLoaded")
-                return@post
-            }
-            
-            RewardedAd.load(
-                context,
-                REWARDED_AD_UNIT_ID,
-                AdRequest.Builder().build(),
+            if (rewardedAd != null) { notifyWeb("onAdLoaded"); return@post }
+            RewardedAd.load(context, REWARDED_AD_UNIT_ID, AdRequest.Builder().build(),
                 object : RewardedAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedAd) {
-                        rewardedAd = ad
-                        Log.d("GalilTV", "✅ Rewarded ad loaded successfully")
-                        notifyWeb("onAdLoaded")
+                        rewardedAd = ad; notifyWeb("onAdLoaded")
                     }
-                    
                     override fun onAdFailedToLoad(error: LoadAdError) {
+                        rewardedAd = null; notifyWeb("onAdFailed")
+                        Handler(Looper.getMainLooper()).postDelayed({ loadRewardedAd() }, 30000)
+                    }
+                })
+        }    }
+    
+    // ✅ دالة عرض الإعلان - النسخة الصحيحة
+    @JavascriptInterface
+    fun showRewardedAd() {
+        Handler(Looper.getMainLooper()).post {
+            rewardGranted = false
+            if (rewardedAd != null) {
+                rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
                         rewardedAd = null
-                        Log.e("GalilTV", "❌ Rewarded ad failed to load: ${error.message}")
-                        notifyWeb("onAdFailed")
-                        
-                        // ✅ محاولة إعادة التحميل بعد 30 ثانية
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            loadRewardedAd()
-                        }, 30000)
+                        if (!rewardGranted) notifyWeb("onAdNotAvailable")
+                        loadRewardedAd()
+                    }
+                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        rewardedAd = null; rewardGranted = false
+                        notifyWeb("onAdNotAvailable"); loadRewardedAd()
                     }
                 }
-            )
+                rewardedAd?.show(activity) { rewardItem ->
+                    rewardGranted = true
+                    Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
+                    
+                    // ✅ احصل على Category ID من الويب وافتح الفئة
+                    activity.webView.evaluateJavascript(
+                        "(function(){ return RewardedAds.currentCategoryId || ''; })();"
+                    ) { categoryId ->
+                        val catId = categoryId?.replace("\"", "") ?: ""
+                        val catName = "Premium"
+                        if (catId.isNotEmpty()) {
+                            openCategoryAfterReward(catId, catName)
+                        } else {
+                            // ✅ إذا لم نحصل على ID، نستخدم الطريقة العادية
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                activity.webView.loadUrl("javascript:window.RewardedAds.onAdRewarded()")
+                            }, 500)
+                        }
+                    }
+                    loadRewardedAd()
+                }
+            } else {
+                notifyWeb("onAdNotAvailable"); loadRewardedAd()
+            }
         }
     }
     
-    // 2️⃣ عرض الإعلان - ✅ النسخة المُصححة بالكامل
+    // ✅ دالة فتح الفئة مباشرة من الأندرويد
     @JavascriptInterface
-fun showRewardedAd() {
-    Handler(Looper.getMainLooper()).post {
-        rewardGranted = false
-        
-        if (rewardedAd != null) {
-            rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    rewardedAd = null
-                    if (!rewardGranted) notifyWeb("onAdNotAvailable")
-                    loadRewardedAd()
-                }
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    rewardedAd = null
-                    rewardGranted = false
-                    notifyWeb("onAdNotAvailable")
-                    loadRewardedAd()
-                }
+    fun openCategoryAfterReward(categoryId: String, categoryName: String) {
+        activity.runOnUiThread {            val jsCode = "if(window.Channels&&window.Channels.load){window.Channels.load('$categoryId', '$categoryName');}"
+            try {
+                activity.webView.loadUrl("javascript:$jsCode")
+                Toast.makeText(context, "🎬 Opening $categoryName...", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("GalilTV", "❌ Failed: ${e.message}")
             }
-            
-            rewardedAd?.show(activity) { rewardItem ->
-    rewardGranted = true
-    Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
-    
-    // ✅ احصل على الـ Category ID من الويب أولاً
-    activity.webView.evaluateJavascript(
-        "(function(){ return RewardedAds.currentCategoryId || ''; })();"
-    ) { categoryId ->
-        val catId = categoryId?.replace("\"", "") ?: ""
-        if (catId.isNotEmpty()) {
-            Log.d("GalilTV", "🎯 Opening category: $catId")
-            // ✅ افتح الفئة مباشرة من الأندرويد
-            openCategoryAfterReward(catId, "Premium")
         }
     }
     
-    loadRewardedAd()
-            }
-    
-    // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
     @JavascriptInterface
     fun refreshRewardedAd() {
         Handler(Looper.getMainLooper()).post {
-            Log.d("GalilTV", "🔄 Refreshing rewarded ad...")
-            rewardedAd = null
-            rewardGranted = false
-            loadRewardedAd()
+            rewardedAd = null; rewardGranted = false; loadRewardedAd()
         }
     }
     
-    // 4️⃣ دالة للتحقق من جاهزية الإعلان
     @JavascriptInterface
     fun isRewardedAdReady(): Boolean {
-        val isReady = rewardedAd != null
-        Log.d("GalilTV", "🔍 Rewarded ad ready: $isReady")
-        return isReady
+        return rewardedAd != null
     }
-
-    // ✅ دالة جديدة: تفتح الفئة مباشرة من الأندرويد
-@JavascriptInterface
-fun openCategoryAfterReward(categoryId: String, categoryName: String) {
-    Log.d("GalilTV", "🎯 Opening category from Android: $categoryId - $categoryName")
-    
-    activity.runOnUiThread {
-        val jsCode = "if(window.Channels&&window.Channels.load){window.Channels.load('$categoryId', '$categoryName');}"
-        try {
-            activity.webView.loadUrl("javascript:$jsCode")
-            Toast.makeText(context, "🎬 Opening $categoryName...", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e("GalilTV", "❌ Failed to open category: ${e.message}")
-        }
-    }
-}
     
     // ============================================
-    // 📡 دوال إرسال الأحداث للويب - ✅ محسّنة باستخدام loadUrl + evaluateJavascript
+    // 📡 دوال إرسال الأحداث للويب
     // ============================================
-    
     private fun notifyWeb(eventName: String) {
-    activity.runOnUiThread {
-        val jsCode = when (eventName) {
-            "onAdRewarded" -> "window.RewardedAds.onAdRewarded()"
-            "onAdLoaded" -> "window.RewardedAds.onAdLoaded()"
-            "onAdFailed" -> "window.RewardedAds.onAdFailed()"
-            "onAdNotAvailable" -> "window.RewardedAds.onAdNotAvailable()"
-            else -> ""
-        }
-        
-        if (jsCode.isNotEmpty()) {
-            try {
-                activity.webView.loadUrl("javascript:$jsCode")
-            } catch (e: Exception) {
-                Log.e("GalilTV", "❌ notifyWeb failed: ${e.message}")
+        activity.runOnUiThread {
+            val jsCode = when (eventName) {
+                "onAdRewarded" -> "window.RewardedAds.onAdRewarded()"
+                "onAdLoaded" -> "window.RewardedAds.onAdLoaded()"
+                "onAdFailed" -> "window.RewardedAds.onAdFailed()"
+                "onAdNotAvailable" -> "window.RewardedAds.onAdNotAvailable()"
+                else -> ""
+            }
+            if (jsCode.isNotEmpty()) {
+                try { activity.webView.loadUrl("javascript:$jsCode") } 
+                catch (e: Exception) { Log.e("GalilTV", "❌ notifyWeb: ${e.message}") }
             }
         }
-    }
     }
 
     // ============================================
     // 🔍 دالة التحقق من تثبيت التطبيقات
     // ============================================
     private fun isAppInstalled(packageName: String): Boolean {
-        return try {
-            context.packageManager.getPackageInfo(packageName, 0)
-            true
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
+        return try { context.packageManager.getPackageInfo(packageName, 0); true } 
+        catch (e: PackageManager.NameNotFoundException) { false }
     }
 }
