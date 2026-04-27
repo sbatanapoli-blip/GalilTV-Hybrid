@@ -2,7 +2,6 @@ package com.galiltv
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -41,13 +40,9 @@ class MainActivity : AppCompatActivity() {
             settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             
-            // ✅ تفعيل التصحيح عن بُعد
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                WebView.setWebContentsDebuggingEnabled(true)
-            }
-            
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {                    if (url == null) return false
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url == null) return false
                     
                     if (url.startsWith("tg://") || url.contains("t.me/")) {
                         openTelegram(url)
@@ -83,23 +78,9 @@ class MainActivity : AppCompatActivity() {
                 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    
-                    // ✅ تحقق من أن RewardedAds موجود في الويب
+                    // ✅ تحميل الإعلانات بعد اكتمال تحميل الصفحة
                     Handler(Looper.getMainLooper()).postDelayed({
-                        webView.evaluateJavascript(
-                            "(typeof window.RewardedAds !== 'undefined')"
-                        ) { result ->
-                            Log.d("GalilTV", "🔍 RewardedAds exists: $result")
-                            if (result == "true") {
-                                Log.d("GalilTV", "✅ RewardedAds found, loading ad...")
-                                loadRewardedAdViaJS()
-                            } else {
-                                Log.e("GalilTV", "❌ RewardedAds not found! Retrying in 2s...")
-                                // حاول مجدداً بعد ثانيتين
-                                Handler(Looper.getMainLooper()).postDelayed({                                    loadRewardedAdViaJS()
-                                }, 2000)
-                            }
-                        }
+                        loadRewardedAdViaJS()
                     }, 3000)
                 }
             }
@@ -145,7 +126,8 @@ class MainActivity : AppCompatActivity() {
                     Log.d("GalilTV", "✅ Interstitial ad loaded")
                 }
                 
-                override fun onAdFailedToLoad(error: LoadAdError) {                    interstitialAd = null
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    interstitialAd = null
                     Log.e("GalilTV", "❌ Interstitial ad failed: ${error.message}")
                 }
             }
@@ -153,9 +135,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun loadRewardedAdViaJS() {
-        Log.d("GalilTV", "🔄 loadRewardedAdViaJS called")
         webView.evaluateJavascript(
-            "if (window.RewardedAds && window.RewardedAds.preloadAd) { console.log('Calling preloadAd from Android'); window.RewardedAds.preloadAd(); } else { console.log('RewardedAds or preloadAd not found'); }",
+            "if (window.RewardedAds && window.RewardedAds.preloadAd) window.RewardedAds.preloadAd();",
             null
         )
     }
@@ -194,7 +175,8 @@ class MainActivity : AppCompatActivity() {
                     webUrl = url.replace("http://", "https://")
                 }
                 val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-                startActivity(webIntent)            } catch (e2: Exception) {
+                startActivity(webIntent)
+            } catch (e2: Exception) {
                 // Do nothing
             }
         }
@@ -243,7 +225,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "Press again to exit", Toast.LENGTH_SHORT).show()
             backPressedTime = System.currentTimeMillis()
-        }    }
+        }
+    }
     
     override fun onDestroy() {
         if (::adView.isInitialized) {
