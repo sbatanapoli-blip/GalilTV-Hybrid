@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -23,8 +24,11 @@ class WebAppInterface(
     // ✅ متغير إعلان المكافأة
     private var rewardedAd: RewardedAd? = null
     
-    // ✅ معرف إعلان المكافأة
+    // ✅ معرف إعلان المكافأة (تأكد من أنه من نوع Rewarded في AdMob)
     private val REWARDED_AD_UNIT_ID = "ca-app-pub-2734159647347391/2152173198"
+    
+    // ✅ متغير لتتبع منح المكافأة (لحل مشكلة إغلاق الإعلان مبكراً)
+    private var rewardGranted = false
 
     // ============================================
     // 🎬 دالة تشغيل الفيديو
@@ -43,8 +47,7 @@ class WebAppInterface(
 
         for (playerPackage in players) {
             if (isAppInstalled(playerPackage)) {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                try {                    val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(Uri.parse(url), "video/*")
                         setPackage(playerPackage)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -90,11 +93,10 @@ class WebAppInterface(
     }
 
     // ============================================
-    // 🎁 دوال إعلان المكافأة (Rewarded Ads)
+    // 🎁 دوال إعلان المكافأة (Rewarded Ads) - ✅ مُصححة
     // ============================================
     
-    // 1️⃣ تحميل الإعلان مسبقاً
-    @JavascriptInterface
+    // 1️⃣ تحميل الإعلان مسبقاً    @JavascriptInterface
     fun loadRewardedAd() {
         Handler(Looper.getMainLooper()).post {
             Log.d("GalilTV", "🔄 Loading rewarded ad...")
@@ -132,40 +134,56 @@ class WebAppInterface(
         }
     }
     
-    // 2️⃣ عرض الإعلان
+    // 2️⃣ عرض الإعلان - ✅ النسخة المُصححة بالكامل
     @JavascriptInterface
     fun showRewardedAd() {
         Handler(Looper.getMainLooper()).post {
             Log.d("GalilTV", "🎬 Showing rewarded ad...")
+            rewardGranted = false  // ✅ إعادة تعيين حالة المكافأة
             
             if (rewardedAd != null) {
                 rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                    override fun onAdDismissedFullScreenContent() {
-                        Log.d("GalilTV", "📺 Rewarded ad dismissed")
+                    
+                    // ✅ عندما يُغلق الإعلان (سواء بعد المشاهدة أو مبكراً)
+                    override fun onAdDismissedFullScreenContent() {                        Log.d("GalilTV", "📺 Rewarded ad dismissed")
                         rewardedAd = null
-                        // تحميل إعلان جديد بعد الإغلاق
+                        
+                        // ✅ فقط إذا لم تُمنح المكافأة، أعلم الويب أن الإعلان أُغلق بدون مكافأة
+                        if (!rewardGranted) {
+                            Log.d("GalilTV", "⚠️ Ad closed without reward")
+                            notifyWeb("onAdNotAvailable")
+                        }
+                        
+                        // تحميل إعلان جديد للاستخدام القادم
                         loadRewardedAd()
                     }
                     
+                    // ✅ عندما يفشل عرض الإعلان
                     override fun onAdFailedToShowFullScreenContent(error: AdError) {
                         Log.e("GalilTV", "❌ Failed to show rewarded ad: ${error.message}")
                         rewardedAd = null
+                        rewardGranted = false
                         notifyWeb("onAdNotAvailable")
-                        // محاولة تحميل إعلان جديد
                         loadRewardedAd()
                     }
                     
+                    // ✅ عندما يُعرض الإعلان بنجاح
                     override fun onAdShowedFullScreenContent() {
                         Log.d("GalilTV", "👀 Rewarded ad shown")
                     }
                 }
                 
+                // ✅ عرض الإعلان مع المكافأة
                 rewardedAd?.show(activity) { rewardItem ->
                     val rewardAmount = rewardItem.amount
                     val rewardType = rewardItem.type
                     Log.d("GalilTV", "💰 Reward granted: $rewardAmount $rewardType")
+                    
+                    // ✅ علامة: المكافأة مُنحت بنجاح
+                    rewardGranted = true
                     notifyWeb("onAdRewarded")
-                    // تحميل إعلان جديد للمرة القادمة
+                    
+                    // تحميل إعلان جديد للاستخدام القادم
                     loadRewardedAd()
                 }
             } else {
@@ -176,13 +194,13 @@ class WebAppInterface(
             }
         }
     }
-    
-    // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
+        // 3️⃣ دالة لإعادة تحميل الإعلان (للحالات الطارئة)
     @JavascriptInterface
     fun refreshRewardedAd() {
         Handler(Looper.getMainLooper()).post {
             Log.d("GalilTV", "🔄 Refreshing rewarded ad...")
             rewardedAd = null
+            rewardGranted = false
             loadRewardedAd()
         }
     }
@@ -196,21 +214,42 @@ class WebAppInterface(
     }
     
     // ============================================
-    // 📡 دوال إرسال الأحداث للويب
+    // 📡 دوال إرسال الأحداث للويب - ✅ محسّنة
     // ============================================
     
     private fun notifyWeb(eventName: String) {
-        Handler(Looper.getMainLooper()).post {
+        activity.runOnUiThread {  // ✅ ضمان التنفيذ على الـ UI Thread
             val jsCode = when (eventName) {
-                "onAdLoaded" -> "if (window.RewardedAds && window.RewardedAds.onAdLoaded) window.RewardedAds.onAdLoaded();"
-                "onAdFailed" -> "if (window.RewardedAds && window.RewardedAds.onAdFailed) window.RewardedAds.onAdFailed();"
-                "onAdRewarded" -> "if (window.RewardedAds && window.RewardedAds.onAdRewarded) window.RewardedAds.onAdRewarded();"
-                "onAdNotAvailable" -> "if (window.RewardedAds && window.RewardedAds.onAdNotAvailable) window.RewardedAds.onAdNotAvailable();"
-                else -> ""
+                "onAdLoaded" -> """
+                    if (window.RewardedAds && typeof window.RewardedAds.onAdLoaded === 'function') {
+                        console.log('📡 [Android] onAdLoaded called');
+                        window.RewardedAds.onAdLoaded();
+                    }
+                """.trimIndent()
+                "onAdFailed" -> """
+                    if (window.RewardedAds && typeof window.RewardedAds.onAdFailed === 'function') {
+                        console.log('📡 [Android] onAdFailed called');
+                        window.RewardedAds.onAdFailed();
+                    }
+                """.trimIndent()
+                "onAdRewarded" -> """
+                    if (window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function') {
+                        console.log('📡 [Android] onAdRewarded called');
+                        window.RewardedAds.onAdRewarded();
+                    }
+                """.trimIndent()
+                "onAdNotAvailable" -> """
+                    if (window.RewardedAds && typeof window.RewardedAds.onAdNotAvailable === 'function') {
+                        console.log('📡 [Android] onAdNotAvailable called');
+                        window.RewardedAds.onAdNotAvailable();
+                    }
+                """.trimIndent()                else -> ""
             }
             
             if (jsCode.isNotEmpty()) {
-                activity.webView.evaluateJavascript(jsCode, null)
+                activity.webView.evaluateJavascript(jsCode) { result ->
+                    Log.d("GalilTV-JS", "📤 JS executed: $result")
+                }
             }
         }
     }
