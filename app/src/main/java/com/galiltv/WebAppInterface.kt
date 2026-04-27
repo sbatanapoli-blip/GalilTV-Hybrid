@@ -138,85 +138,50 @@ class WebAppInterface(
     @JavascriptInterface
 fun showRewardedAd() {
     Handler(Looper.getMainLooper()).post {
-        Log.d("GalilTV", "🎬 showRewardedAd() called")
         rewardGranted = false
         
         if (rewardedAd != null) {
-            Log.d("GalilTV", "✅ rewardedAd is not null")
-            
             rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
-                    Log.d("GalilTV", "📺 onAdDismissedFullScreenContent()")
-                    Log.d("GalilTV", "💰 rewardGranted = $rewardGranted")
                     rewardedAd = null
-                    
-                    if (!rewardGranted) {
-                        Log.d("GalilTV", "⚠️ Ad closed without reward")
-                        notifyWeb("onAdNotAvailable")
-                    }
-                    
+                    if (!rewardGranted) notifyWeb("onAdNotAvailable")
                     loadRewardedAd()
                 }
-                
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e("GalilTV", "❌ onAdFailedToShow: ${error.message}")
                     rewardedAd = null
                     rewardGranted = false
                     notifyWeb("onAdNotAvailable")
                     loadRewardedAd()
                 }
-                
-                override fun onAdShowedFullScreenContent() {
-                    Log.d("GalilTV", "👀 onAdShowedFullScreenContent")
-                }
             }
             
-            Log.d("GalilTV", "🎬 Showing ad...")
             rewardedAd?.show(activity) { rewardItem ->
-                val rewardAmount = rewardItem.amount
-                val rewardType = rewardItem.type
-                Log.d("GalilTV", "💰 Reward granted: $rewardAmount $rewardType")
-                
                 rewardGranted = true
+                Toast.makeText(context, "✅ Opening category...", Toast.LENGTH_SHORT).show()
                 
-                // ✅ أظهر Toast
-                Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(context, "✅ Reward Granted! Opening...", Toast.LENGTH_SHORT).show()
-                }
-                
-                // ✅ استخدم postDelayed أطول (2 ثانية)
+                // ✅ الحل المباشر: نفذ الجافاسكريبت بطريقة بسيطة جداً
                 Handler(Looper.getMainLooper()).postDelayed({
-                    Log.d("GalilTV", "📡 Calling notifyWeb...")
-                    
-                    // ✅ نفذ الكود مباشرة في WebView
-                    activity.webView.post {
-                        val jsCode = """
-                            (function() {
-                                console.log('🎁 Executing onAdRewarded...');
-                                if (window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function') {
-                                    try {
-                                        window.RewardedAds.onAdRewarded();
-                                        console.log('✅ Success!');
-                                    } catch (e) {
-                                        console.error('❌ Error:', e);
-                                    }
-                                } else {
-                                    console.error('❌ onAdRewarded not found!');
-                                }
-                            })();
-                        """.trimIndent()
-                        
-                        Log.d("GalilTV-JS", "📝 Executing: $jsCode")
-                        activity.webView.evaluateJavascript(jsCode) { result ->
-                            Log.d("GalilTV-JS", "✅ Result: $result")
-                        }
+                    try {
+                        // الطريقة 1: loadUrl مع كود بسيط
+                        activity.webView.loadUrl("javascript:window.RewardedAds.onAdRewarded()")
+                    } catch (e: Exception) {
+                        Log.e("GalilTV", "❌ loadUrl failed: ${e.message}")
                     }
-                }, 2000)  // ✅ انتظر ثانيتين
+                    
+                    // الطريقة 2: evaluateJavascript كاحتياط
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try {
+                            activity.webView.evaluateJavascript("javascript:window.RewardedAds.onAdRewarded()", null)
+                        } catch (e: Exception) {
+                            Log.e("GalilTV", "❌ evaluateJavascript failed: ${e.message}")
+                        }
+                    }, 500)
+                    
+                }, 1000)  // انتظر ثانية واحدة
                 
                 loadRewardedAd()
             }
         } else {
-            Log.e("GalilTV", "❌ rewardedAd is null!")
             notifyWeb("onAdNotAvailable")
             loadRewardedAd()
         }
@@ -247,27 +212,23 @@ fun showRewardedAd() {
     // ============================================
     
     private fun notifyWeb(eventName: String) {
-        Log.d("GalilTV-JS", "📡 notifyWeb called: $eventName")
+    activity.runOnUiThread {
+        val jsCode = when (eventName) {
+            "onAdRewarded" -> "window.RewardedAds.onAdRewarded()"
+            "onAdLoaded" -> "window.RewardedAds.onAdLoaded()"
+            "onAdFailed" -> "window.RewardedAds.onAdFailed()"
+            "onAdNotAvailable" -> "window.RewardedAds.onAdNotAvailable()"
+            else -> ""
+        }
         
-        activity.runOnUiThread {
-            val jsCode = when (eventName) {
-                "onAdRewarded" -> "window.RewardedAds && window.RewardedAds.onAdRewarded && window.RewardedAds.onAdRewarded();"
-                "onAdLoaded" -> "window.RewardedAds && window.RewardedAds.onAdLoaded && window.RewardedAds.onAdLoaded();"
-                "onAdFailed" -> "window.RewardedAds && window.RewardedAds.onAdFailed && window.RewardedAds.onAdFailed();"
-                "onAdNotAvailable" -> "window.RewardedAds && window.RewardedAds.onAdNotAvailable && window.RewardedAds.onAdNotAvailable();"
-                else -> ""
-            }
-            
-            if (jsCode.isNotEmpty()) {                // ✅ استخدم loadUrl أولاً (أكثر موثوقية)
-                Log.d("GalilTV-JS", "📝 Executing via loadUrl: $eventName")
+        if (jsCode.isNotEmpty()) {
+            try {
                 activity.webView.loadUrl("javascript:$jsCode")
-                
-                // ✅ أيضاً جرب evaluateJavascript كاحتياط
-                activity.webView.evaluateJavascript(jsCode) { result ->
-                    Log.d("GalilTV-JS", "✅ evaluateJavascript result: $result")
-                }
+            } catch (e: Exception) {
+                Log.e("GalilTV", "❌ notifyWeb failed: ${e.message}")
             }
         }
+    }
     }
 
     // ============================================
