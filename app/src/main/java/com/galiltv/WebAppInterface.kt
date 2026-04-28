@@ -135,8 +135,17 @@ class WebAppInterface(
     }
     
     // 2️⃣ عرض الإعلان - ✅ النسخة المُصححة بالكامل
-    @JavascriptInterface
-fun showRewardedAd() {
+    // ✅ أضف هذين المتغيرين في أعلى الكلاس (مع بقية المتغيرات)
+private var pendingCategoryId = ""
+private var pendingCategoryName = ""
+
+// ✅ ثم استبدل دالة showRewardedAd() بالكامل:
+@JavascriptInterface
+fun showRewardedAd(categoryId: String, categoryName: String) {
+    // نحفظ المعرفات في الأندرويد لاستخدامها لاحقاً
+    pendingCategoryId = categoryId
+    pendingCategoryName = categoryName
+    
     Handler(Looper.getMainLooper()).post {
         rewardGranted = false
         
@@ -152,27 +161,28 @@ fun showRewardedAd() {
                     notifyWeb("onAdNotAvailable"); loadRewardedAd()
                 }
             }
-
+            
             rewardedAd?.show(activity) { rewardItem ->
                 rewardGranted = true
                 Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
-
-                // ✅ الحل السحري: انتظر 1.5 ثانية لضمان اختفاء إعلان AdMob تماماً
+                
+                // ✅ ننتظر ثانية واحدة لضمان اختفاء واجهة AdMob تماماً
                 Handler(Looper.getMainLooper()).postDelayed({
                     try {
-                        // 1. أغلق المودال مباشرة من الأندرويد (أضمن طريقة)
-                        activity.webView.loadUrl("javascript:document.getElementById('premiumModal').classList.add('hidden');")
+                        val jsCode = "window.unlockCategory('$pendingCategoryId', '$pendingCategoryName')"
+                        Log.d("GalilTV", "🔓 Injecting JS: $jsCode")
                         
-                        // 2. استدعِ دالة الجافاسكريبت لإضافة الوقت وفتح القنوات
-                        activity.webView.evaluateJavascript(
-                            "if(window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function'){window.RewardedAds.onAdRewarded();}", 
-                            null
-                        )
+                        // نستخدم evaluateJavascript على الـ UI Thread
+                        activity.runOnUiThread {
+                            activity.webView.evaluateJavascript(jsCode) { result ->
+                                Log.d("GalilTV-JS", "✅ JS Result: $result")
+                            }
+                        }
                     } catch (e: Exception) {
-                        Log.e("GalilTV", "❌ JS Execution Failed: ${e.message}")
+                        Log.e("GalilTV", "❌ JS Injection failed: ${e.message}")
                     }
-                }, 1500) // ⬅️ هذا التأخير هو المفتاح!
-
+                }, 1000) // ⬅️ هذا التأخير هو مفتاح الحل
+                
                 loadRewardedAd()
             }
         } else {
