@@ -138,67 +138,44 @@ class WebAppInterface(
     @JavascriptInterface
 fun showRewardedAd() {
     Handler(Looper.getMainLooper()).post {
-        Log.d("GalilTV", "🎬 showRewardedAd started")
         rewardGranted = false
         
         if (rewardedAd != null) {
             rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
-                    Log.d("GalilTV", "📺 Ad dismissed, rewardGranted=$rewardGranted")
                     rewardedAd = null
-                    if (!rewardGranted) {
-                        notifyWeb("onAdNotAvailable")
-                    }
+                    if (!rewardGranted) notifyWeb("onAdNotAvailable")
                     loadRewardedAd()
                 }
-                
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e("GalilTV", "❌ Ad failed: ${error.message}")
-                    rewardedAd = null
-                    rewardGranted = false
-                    notifyWeb("onAdNotAvailable")
-                    loadRewardedAd()
+                    rewardedAd = null; rewardGranted = false
+                    notifyWeb("onAdNotAvailable"); loadRewardedAd()
                 }
             }
-            
-            // ✅ عرض الإعلان
+
             rewardedAd?.show(activity) { rewardItem ->
-                Log.d("GalilTV", "💰 REWARD GRANTED!")
                 rewardGranted = true
-                
-                // ✅ أغلق الـ Modal فوراً وأفتح الفئة
-                Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
+
+                // ✅ الحل السحري: انتظر 1.5 ثانية لضمان اختفاء إعلان AdMob تماماً
+                Handler(Looper.getMainLooper()).postDelayed({
                     try {
-                        // الطريقة 1: أغلق الـ Modal مباشرة
-                        activity.webView.loadUrl("javascript:document.getElementById('premiumModal').classList.add('hidden')")
+                        // 1. أغلق المودال مباشرة من الأندرويد (أضمن طريقة)
+                        activity.webView.loadUrl("javascript:document.getElementById('premiumModal').classList.add('hidden');")
                         
-                        // الطريقة 2: افتح الفئة
-                        val jsCode = """
-                            (function() {
-                                console.log('🎁 Opening category...');
-                                if (window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function') {
-                                    window.RewardedAds.onAdRewarded();
-                                }
-                                if (window.Channels && typeof window.Channels.load === 'function' && window.RewardedAds && window.RewardedAds.currentCategoryId) {
-                                    window.Channels.load(window.RewardedAds.currentCategoryId, 'Premium');
-                                }
-                            })();
-                        """.trimIndent()
-                        
-                        activity.webView.evaluateJavascript(jsCode, null)
-                        
-                        Toast.makeText(context, "✅ Opening category...", Toast.LENGTH_SHORT).show()
-                        
+                        // 2. استدعِ دالة الجافاسكريبت لإضافة الوقت وفتح القنوات
+                        activity.webView.evaluateJavascript(
+                            "if(window.RewardedAds && typeof window.RewardedAds.onAdRewarded === 'function'){window.RewardedAds.onAdRewarded();}", 
+                            null
+                        )
                     } catch (e: Exception) {
-                        Log.e("GalilTV", "❌ Error: ${e.message}")
-                        e.printStackTrace()
+                        Log.e("GalilTV", "❌ JS Execution Failed: ${e.message}")
                     }
-                }
-                
+                }, 1500) // ⬅️ هذا التأخير هو المفتاح!
+
                 loadRewardedAd()
             }
         } else {
-            Log.e("GalilTV", "❌ Ad not ready")
             notifyWeb("onAdNotAvailable")
             loadRewardedAd()
         }
