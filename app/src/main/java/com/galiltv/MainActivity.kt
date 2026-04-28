@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -38,25 +39,20 @@ class MainActivity : AppCompatActivity() {
         MobileAds.initialize(this) {}
         loadInterstitialAd()
         
-        // ✅ التحقق من الاتصال قبل التحميل
-        if (!isNetworkAvailable()) {
-            showOfflinePage()
-        }
-        
+        // 1️⃣ إعداد WebView وتكوينه
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
-            settings.loadWithOverviewMode = true            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
-            
-            // ✅ تفعيل التصحيح عن بُعد
+                        // تفعيل التصحيح عن بُعد
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 WebView.setWebContentsDebuggingEnabled(true)
             }
             
             webViewClient = object : WebViewClient() {
-                
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url == null) return false
                     
@@ -92,22 +88,22 @@ class MainActivity : AppCompatActivity() {
                     return false
                 }
                 
-                // ✅ معالجة أخطاء التحميل (أندرويد 6.0+)
+                // معالجة الأخطاء (أندرويد 6.0 فأحدث)
                 override fun onReceivedError(
                     view: WebView?,
                     request: WebResourceRequest?,
-                    error: WebResourceError?                ) {
+                    error: WebResourceError?
+                ) {
                     super.onReceivedError(view, request, error)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        if (error?.errorCode == WebViewClient.ERROR_HOST_LOOKUP || 
-                            error?.errorCode == WebViewClient.ERROR_CONNECT || 
-                            error?.errorCode == WebViewClient.ERROR_TIMEOUT) {
+                        if (error?.errorCode == ERROR_HOST_LOOKUP ||                             error?.errorCode == ERROR_CONNECT || 
+                            error?.errorCode == ERROR_TIMEOUT) {
                             showOfflinePage()
                         }
                     }
                 }
                 
-                // ✅ معالجة أخطاء التحميل (أندرويد قديم)
+                // معالجة الأخطاء (أندرويد قديم)
                 @Suppress("DEPRECATION")
                 override fun onReceivedError(
                     view: WebView?,
@@ -116,9 +112,9 @@ class MainActivity : AppCompatActivity() {
                     failingUrl: String?
                 ) {
                     super.onReceivedError(view, errorCode, description, failingUrl)
-                    if (errorCode == WebViewClient.ERROR_HOST_LOOKUP || 
-                        errorCode == WebViewClient.ERROR_CONNECT || 
-                        errorCode == WebViewClient.ERROR_TIMEOUT) {
+                    if (errorCode == ERROR_HOST_LOOKUP || 
+                        errorCode == ERROR_CONNECT || 
+                        errorCode == ERROR_TIMEOUT) {
                         showOfflinePage()
                     }
                 }
@@ -133,9 +129,9 @@ class MainActivity : AppCompatActivity() {
             
             webChromeClient = WebChromeClient()
             addJavascriptInterface(WebAppInterface(this@MainActivity, this@MainActivity), "Android")
-            loadUrl(HTML_URL)
         }
         
+        // 2️⃣ إعداد واجهة المستخدم
         setupBannerAd()
         
         val rootLayout = FrameLayout(this)
@@ -145,11 +141,18 @@ class MainActivity : AppCompatActivity() {
         ))
         rootLayout.addView(adView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT        ).apply {
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
             gravity = android.view.Gravity.BOTTOM
         })
+                setContentView(rootLayout)
         
-        setContentView(rootLayout)
+        // 3️⃣ التحقق من الاتصال وتحميل المحتوى
+        if (!isNetworkAvailable()) {
+            showOfflinePage()
+        } else {
+            webView.loadUrl(HTML_URL)
+        }
     }
     
     // ✅ دالة عرض صفحة Offline الاحترافية
@@ -176,78 +179,31 @@ class MainActivity : AppCompatActivity() {
                         text-align: center;
                     }
                     .container { max-width: 360px; }
-                    .icon {
-                        font-size: 100px;
-                        margin-bottom: 24px;
-                        animation: float 3s ease-in-out infinite;
-                    }
+                    .icon { font-size: 100px; margin-bottom: 24px; animation: float 3s ease-in-out infinite; }
                     @keyframes float {
                         0%, 100% { transform: translateY(0); }
                         50% { transform: translateY(-10px); }
                     }
                     .wifi-circle {
-                        width: 140px;
-                        height: 140px;
-                        margin: 0 auto 24px;
-                        background: rgba(239, 68, 68, 0.15);
-                        border: 2px solid rgba(239, 68, 68, 0.3);
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;                        font-size: 60px;
+                        width: 140px; height: 140px; margin: 0 auto 24px;
+                        background: rgba(239, 68, 68, 0.15); border: 2px solid rgba(239, 68, 68, 0.3);
+                        border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 60px;
                     }
-                    h1 {
-                        font-size: 24px;
-                        margin-bottom: 12px;
-                        font-weight: 700;
-                        color: #fff;
-                    }
-                    p {
-                        font-size: 15px;
-                        margin-bottom: 28px;
-                        color: rgba(255,255,255,0.75);
-                        line-height: 1.6;
-                    }
+                    h1 { font-size: 24px; margin-bottom: 12px; font-weight: 700; color: #fff; }
+                    p { font-size: 15px; margin-bottom: 28px; color: rgba(255,255,255,0.75); line-height: 1.6; }
                     .retry-btn {
-                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                        color: #000;
-                        border: none;
-                        padding: 14px 36px;
-                        border-radius: 50px;
-                        font-size: 15px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
-                        width: 100%;
-                        max-width: 280px;
-                    }
-                    .retry-btn:active {
-                        transform: scale(0.98);
-                        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
-                    }
-                    .status-dot {
-                        display: inline-block;
-                        width: 8px;
-                        height: 8px;
-                        background: #ef4444;
-                        border-radius: 50%;
-                        margin-left: 6px;
-                        animation: blink 1.5s infinite;
-                    }
-                    @keyframes blink {
-                        0%, 100% { opacity: 1; }
-                        50% { opacity: 0.4; }
-                    }
+                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; border: none;
+                        padding: 14px 36px; border-radius: 50px; font-size: 15px; font-weight: 700; cursor: pointer;
+                        transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35); width: 100%; max-width: 280px;                    }
+                    .retry-btn:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25); }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <div class="wifi-circle">📡</div>                    <h1>لا يوجد اتصال بالإنترنت</h1>
-                    <p>يبدو أن جهازك غير متصل بالشبكة. يرجى التحقق من إعدادات الإنترنت والمحاولة مرة أخرى.</p>
-                    <button class="retry-btn" onclick="window.location.reload()">
-                        🔄 إعادة المحاولة
-                    </button>
+                    <div class="wifi-circle">📡</div>
+                    <h1>لا يوجد اتصال بالإنترنت</h1>
+                    <p>يبدو أن جهازك غير متصل بالشبكة. يرجى التحقق من الإعدادات والمحاولة مرة أخرى.</p>
+                    <button class="retry-btn" onclick="window.location.reload()">🔄 إعادة المحاولة</button>
                 </div>
             </body>
             </html>
@@ -274,7 +230,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    // ✅ مراقبة تغيرات الاتصال
+    // ✅ مراقبة تغيرات الاتصال (متوافق مع جميع الإصدارات)
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             runOnUiThread {
@@ -287,12 +243,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        override fun onLost(network: Network) {
-            runOnUiThread {
+        override fun onLost(network: Network) {            runOnUiThread {
                 if (isOnline) {
                     isOnline = false
-                    Log.d("GalilTV", "🔌 Internet lost, showing offline page")
-                    showOfflinePage()                    Toast.makeText(this@MainActivity, "⚠️ انقطع الاتصال بالإنترنت", Toast.LENGTH_SHORT).show()
+                    Log.d("GalilTV", "🔌 Internet lost")
+                    showOfflinePage()
+                    Toast.makeText(this@MainActivity, "⚠️ انقطع الاتصال", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -316,7 +272,6 @@ class MainActivity : AppCompatActivity() {
                     interstitialAd = ad
                     Log.d("GalilTV", "✅ Interstitial ad loaded")
                 }
-                
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
                     Log.e("GalilTV", "❌ Interstitial ad failed: ${error.message}")
@@ -337,11 +292,10 @@ class MainActivity : AppCompatActivity() {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     interstitialAd = null
-                    loadInterstitialAd()
-                }
-                
+                    loadInterstitialAd()                }
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    interstitialAd = null                    loadInterstitialAd()
+                    interstitialAd = null
+                    loadInterstitialAd()
                 }
             }
             interstitialAd?.show(this)
@@ -357,54 +311,44 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             try {
-                val webUrl: String
-                if (url.startsWith("tg://")) {
-                    val username = url.substringAfter("domain=").substringBefore("&")
-                    webUrl = "https://t.me/$username"
+                val webUrl = if (url.startsWith("tg://")) {
+                    "https://t.me/${url.substringAfter("domain=").substringBefore("&")}"
                 } else {
-                    webUrl = url.replace("http://", "https://")
+                    url.replace("http://", "https://")
                 }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-                startActivity(webIntent)
-            } catch (e2: Exception) {
-                // Do nothing
-            }
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
+            } catch (e2: Exception) {}
         }
     }
     
     override fun onResume() {
         super.onResume()
         
-        // ✅ تسجيل مراقبة الاتصال
+        // تسجيل مراقبة الاتصال
         try {
             val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            connectivityManager.registerDefaultNetworkCallback(networkCallback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connectivityManager.registerDefaultNetworkCallback(networkCallback)
+            } else {
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager.registerNetworkCallback(request, networkCallback)
+            }
         } catch (e: Exception) {
-            Log.e("GalilTV", "❌ Failed to register network callback: ${e.message}")
+            Log.e("GalilTV", "❌ Network callback error: ${e.message}")
         }
         
-        // ✅ إعادة تحميل Banner Ad
-        if (::adView.isInitialized) {
-            adView.loadAd(AdRequest.Builder().build())
-        }
-        
-        // ✅ إعادة تحميل Interstitial Ad
-        if (interstitialAd == null) {
-            loadInterstitialAd()        }
-        
-        // ✅ إعادة تحميل Rewarded Ad
-        loadRewardedAdViaJS()
-    }
+        if (::adView.isInitialized) adView.loadAd(AdRequest.Builder().build())
+        if (interstitialAd == null) loadInterstitialAd()
+        loadRewardedAdViaJS()    }
     
     override fun onPause() {
         super.onPause()
-        // ✅ إلغاء تسجيل مراقبة الاتصال
         try {
             val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             connectivityManager.unregisterNetworkCallback(networkCallback)
-        } catch (e: Exception) {
-            // تجاهل الأخطاء
-        }
+        } catch (e: Exception) {}
     }
     
     override fun onBackPressed() {
@@ -414,11 +358,8 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(
                 "(function() { return !document.getElementById('channelsPage').classList.contains('hidden'); })();",
                 { value ->
-                    if (value == "true") {
-                        webView.evaluateJavascript("window.goBack();", null)
-                    } else {
-                        handleDoubleTapExit()
-                    }
+                    if (value == "true") webView.evaluateJavascript("window.goBack();", null)
+                    else handleDoubleTapExit()
                 }
             )
         }
@@ -434,9 +375,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
-        if (::adView.isInitialized) {
-            adView.destroy()
-        }
+        if (::adView.isInitialized) adView.destroy()
         webView.destroy()
         super.onDestroy()
-    }}
+    }
+}
