@@ -19,6 +19,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
     
@@ -32,6 +36,12 @@ class MainActivity : AppCompatActivity() {
     private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
     private val BANNER_AD_UNIT_ID = "ca-app-pub-2734159647347391/8538520168"
     private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-2734159647347391/6674774154"
+    
+    // 🔐 Service Token من Cloudflare Access
+    companion object {
+        private const val CLIENT_ID = "23c8af7197f1e760d72f5a151079a3e1.access"
+        private const val CLIENT_SECRET = "f8563206529036ecbc13637f9155df01f1dc36d52400194650d8bc993afea4b9"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,12 +57,31 @@ class MainActivity : AppCompatActivity() {
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
-                        // تفعيل التصحيح عن بُعد
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            
+            // تفعيل التصحيح عن بُعد
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 WebView.setWebContentsDebuggingEnabled(true)
             }
             
             webViewClient = object : WebViewClient() {
+                
+                // 🔥 اعتراض جميع الطلبات وإضافة Service Token تلقائياً
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): WebResourceResponse? {
+                    val url = request?.url.toString()
+                    
+                    // فقط للطلبات التي تذهب إلى Worker الخاص بنا
+                    if (url.contains("galil-secure.sbatanapoli.workers.dev")) {
+                        Log.d("GalilTV", "🔄 Intercepting request to: $url")
+                        return makeAuthenticatedRequest(url)
+                    }
+                    
+                    return super.shouldInterceptRequest(view, request)
+                }
+                
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url == null) return false
                     
@@ -96,7 +125,8 @@ class MainActivity : AppCompatActivity() {
                 ) {
                     super.onReceivedError(view, request, error)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        if (error?.errorCode == ERROR_HOST_LOOKUP ||                             error?.errorCode == ERROR_CONNECT || 
+                        if (error?.errorCode == ERROR_HOST_LOOKUP || 
+                            error?.errorCode == ERROR_CONNECT || 
                             error?.errorCode == ERROR_TIMEOUT) {
                             showOfflinePage()
                         }
@@ -145,13 +175,43 @@ class MainActivity : AppCompatActivity() {
         ).apply {
             gravity = android.view.Gravity.BOTTOM
         })
-                setContentView(rootLayout)
+        setContentView(rootLayout)
         
         // 3️⃣ التحقق من الاتصال وتحميل المحتوى
         if (!isNetworkAvailable()) {
             showOfflinePage()
         } else {
             webView.loadUrl(HTML_URL)
+        }
+    }
+    
+    // 🔥 دالة تنفيذ الطلب مع إضافة Service Token
+    private fun makeAuthenticatedRequest(urlString: String): WebResourceResponse? {
+        return try {
+            val url = URL(urlString)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.setRequestProperty("CF-Access-Client-Id", CLIENT_ID)
+            connection.setRequestProperty("CF-Access-Client-Secret", CLIENT_SECRET)
+            connection.setRequestProperty("User-Agent", "GalilTV-Android-App")
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
+            connection.useCaches = false
+            
+            val responseCode = connection.responseCode
+            Log.d("GalilTV", "📡 Response code: $responseCode for $urlString")
+            
+            if (responseCode in 200..299) {
+                val inputStream = connection.inputStream
+                val contentType = connection.contentType ?: "application/json"
+                WebResourceResponse(contentType, "UTF-8", inputStream)
+            } else {
+                Log.e("GalilTV", "❌ HTTP Error: $responseCode")
+                val errorStream = connection.errorStream
+                WebResourceResponse("application/json", "UTF-8", errorStream)
+            }
+        } catch (e: Exception) {
+            Log.e("GalilTV", "❌ Request failed: ${e.message}")
+            null
         }
     }
     
@@ -243,7 +303,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        override fun onLost(network: Network) {            runOnUiThread {
+        override fun onLost(network: Network) {
+            runOnUiThread {
                 if (isOnline) {
                     isOnline = false
                     Log.d("GalilTV", "🔌 Internet lost")
@@ -292,7 +353,8 @@ class MainActivity : AppCompatActivity() {
             interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     interstitialAd = null
-                    loadInterstitialAd()                }
+                    loadInterstitialAd()
+                }
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
                     interstitialAd = null
                     loadInterstitialAd()
@@ -341,7 +403,8 @@ class MainActivity : AppCompatActivity() {
         
         if (::adView.isInitialized) adView.loadAd(AdRequest.Builder().build())
         if (interstitialAd == null) loadInterstitialAd()
-        loadRewardedAdViaJS()    }
+        loadRewardedAdViaJS()
+    }
     
     override fun onPause() {
         super.onPause()
