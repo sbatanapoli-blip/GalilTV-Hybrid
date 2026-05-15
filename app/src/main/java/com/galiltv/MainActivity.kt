@@ -66,22 +66,6 @@ class MainActivity : AppCompatActivity() {
             
             webViewClient = object : WebViewClient() {
                 
-                // 🔥 اعتراض جميع الطلبات وإضافة Service Token تلقائياً
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): WebResourceResponse? {
-                    val url = request?.url.toString()
-                    
-                    // فقط للطلبات التي تذهب إلى Worker الخاص بنا
-                    if (url.contains("galil-secure.sbatanapoli.workers.dev")) {
-                        Log.d("GalilTV", "🔄 Intercepting request to: $url")
-                        return makeAuthenticatedRequest(url)
-                    }
-                    
-                    return super.shouldInterceptRequest(view, request)
-                }
-                
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url == null) return false
                     
@@ -158,7 +142,17 @@ class MainActivity : AppCompatActivity() {
             }
             
             webChromeClient = WebChromeClient()
+            
+            // ✅ JavaScript Interface الموجود مسبقاً
             addJavascriptInterface(WebAppInterface(this@MainActivity, this@MainActivity), "Android")
+            
+            // ✅ JavaScript Interface الجديد لجلب البيانات مع Service Token
+            addJavascriptInterface(object {
+                @JavascriptInterface
+                fun fetch(url: String): String {
+                    return this@MainActivity.fetchWithAuth(url)
+                }
+            }, "NativeBridge")
         }
         
         // 2️⃣ إعداد واجهة المستخدم
@@ -185,33 +179,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    // 🔥 دالة تنفيذ الطلب مع إضافة Service Token
-    private fun makeAuthenticatedRequest(urlString: String): WebResourceResponse? {
+    // 🔥 دالة جلب البيانات مع Service Token (تستدعيها JavaScript)
+    @JavascriptInterface
+    fun fetchWithAuth(url: String): String {
         return try {
-            val url = URL(urlString)
-            val connection = url.openConnection() as HttpURLConnection
+            Log.d("GalilTV", "🔵 [DEBUG] Fetching: $url")
+            
+            val connection = URL(url).openConnection() as HttpURLConnection
             connection.setRequestProperty("CF-Access-Client-Id", CLIENT_ID)
             connection.setRequestProperty("CF-Access-Client-Secret", CLIENT_SECRET)
             connection.setRequestProperty("User-Agent", "GalilTV-Android-App")
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
-            connection.useCaches = false
             
             val responseCode = connection.responseCode
-            Log.d("GalilTV", "📡 Response code: $responseCode for $urlString")
+            Log.d("GalilTV", "🔵 [DEBUG] Response code: $responseCode")
             
             if (responseCode in 200..299) {
-                val inputStream = connection.inputStream
-                val contentType = connection.contentType ?: "application/json"
-                WebResourceResponse(contentType, "UTF-8", inputStream)
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = reader.readText()
+                Log.d("GalilTV", "🔵 [DEBUG] Response length: ${response.length}")
+                response
             } else {
-                Log.e("GalilTV", "❌ HTTP Error: $responseCode")
                 val errorStream = connection.errorStream
-                WebResourceResponse("application/json", "UTF-8", errorStream)
+                val reader = BufferedReader(InputStreamReader(errorStream))
+                val errorResponse = reader.readText()
+                Log.e("GalilTV", "🔴 [DEBUG] HTTP Error $responseCode: $errorResponse")
+                "{\"error\": \"HTTP $responseCode\", \"details\": \"$errorResponse\"}"
             }
         } catch (e: Exception) {
-            Log.e("GalilTV", "❌ Request failed: ${e.message}")
-            null
+            Log.e("GalilTV", "🔴 [DEBUG] Exception: ${e.message}")
+            "{\"error\": \"${e.message}\"}"
         }
     }
     
