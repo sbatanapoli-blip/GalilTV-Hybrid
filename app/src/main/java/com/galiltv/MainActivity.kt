@@ -155,21 +155,30 @@ class MainActivity : AppCompatActivity() {
             }, "NativeBridge")
         }
         
-        // 2️⃣ إعداد واجهة المستخدم
-        setupBannerAd()
-        
-        val rootLayout = FrameLayout(this)
-        rootLayout.addView(webView, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        ))
-        rootLayout.addView(adView, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = android.view.Gravity.BOTTOM
-        })
-        setContentView(rootLayout)
+        // 2️⃣ إعداد واجهة المستخدم - الطريقة الصحيحة للـ Banner
+setupBannerAd()
+
+// استخدام RelativeLayout لضمان وجود الإعلان في الأسفل
+val rootLayout = RelativeLayout(this)
+
+// إعدادات الـ WebView
+webView.layoutParams = RelativeLayout.LayoutParams(
+    RelativeLayout.LayoutParams.MATCH_PARENT,
+    RelativeLayout.LayoutParams.MATCH_PARENT
+)
+
+// إعدادات الـ Banner - وضعه في الأسفل
+val bannerParams = RelativeLayout.LayoutParams(
+    RelativeLayout.LayoutParams.MATCH_PARENT,
+    RelativeLayout.LayoutParams.WRAP_CONTENT
+)
+bannerParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
+
+// إضافة الـ WebView أولاً، ثم إضافة الإعلان فوقه
+rootLayout.addView(webView)
+rootLayout.addView(adView, bannerParams)
+
+setContentView(rootLayout)
         
         // 3️⃣ التحقق من الاتصال وتحميل المحتوى
         if (!isNetworkAvailable()) {
