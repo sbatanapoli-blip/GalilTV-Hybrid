@@ -25,7 +25,7 @@ class WebAppInterface(
     private var rewardedAd: RewardedAd? = null
     
     // ✅ معرف إعلان المكافأة (تأكد من أنه من نوع Rewarded في AdMob)
-    private val REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    private val REWARDED_AD_UNIT_ID = "ca-app-pub-2734159647347391/9622655402"
     
     // ✅ متغير لتتبع منح المكافأة (لحل مشكلة إغلاق الإعلان مبكراً)
     private var rewardGranted = false
