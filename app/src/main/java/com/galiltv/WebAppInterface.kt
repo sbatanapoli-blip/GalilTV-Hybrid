@@ -166,23 +166,24 @@ fun showRewardedAd(categoryId: String, categoryName: String) {
                 rewardGranted = true
                 Toast.makeText(context, "✅ Reward Granted!", Toast.LENGTH_SHORT).show()
                 
-                // ✅ ننتظر ثانية واحدة لضمان اختفاء واجهة AdMob تماماً
                 Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        val jsCode = "window.unlockCategory('$pendingCategoryId', '$pendingCategoryName')"
-                        Log.d("GalilTV", "🔓 Injecting JS: $jsCode")
-                        
-                        // نستخدم evaluateJavascript على الـ UI Thread
-                        activity.runOnUiThread {
-                            activity.webView.evaluateJavascript(jsCode) { result ->
-                                Log.d("GalilTV-JS", "✅ JS Result: $result")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("GalilTV", "❌ JS Injection failed: ${e.message}")
-                    }
-                }, 1000) // ⬅️ هذا التأخير هو مفتاح الحل
-                
+    try {
+        val jsCode = """
+            console.log('🎁 Opening $pendingCategoryName...');
+            if (window.RewardedAds && typeof RewardedAds.onAdRewarded === 'function') {
+                RewardedAds.onAdRewarded();
+            }
+        """.trimIndent()
+        
+        activity.runOnUiThread {
+            activity.webView.evaluateJavascript(jsCode) { result ->
+                Log.d("GalilTV-JS", "✅ Success: $result")
+            }
+        }
+    } catch (e: Exception) {
+        Log.e("GalilTV", "❌ Error: ${e.message}")
+    }
+}, 500)
                 loadRewardedAd()
             }
         } else {
