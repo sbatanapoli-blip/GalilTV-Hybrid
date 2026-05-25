@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
     private var backPressedTime: Long = 0
     private var isOnline = true
     
-    private val HTML_URL = "https://sbatanapoli-blip.github.io/galil-tv-web/"
+    private val HTML_URL = "https://sbatanapoli-blip.github.io/Styles/"
     private val BANNER_AD_UNIT_ID = "ca-app-pub-2734159647347391/2177759745"
     private val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-2734159647347391/8828448482"
     
